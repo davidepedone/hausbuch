@@ -23,16 +23,16 @@
 
 ## 3. Pages (`wiki-pages`)
 
-- [ ] 3.1 Add the `page`, `page_revision`, `page_alias` and `page_link` migrations and the page store; verify the migrations apply in `make check`
-- [ ] 3.2 Render Markdown with goldmark (GFM tables and task lists) with raw HTML escaped as text; verify unit tests for the "Formatted text in Markdown" scenarios, including a script tag and a `javascript:` link
-- [ ] 3.3 Build create and view page with the title rules and the language choice preset from `HAUSBUCH_DEFAULT_LANGUAGE`; verify tests for the "Create a page" and "Page language" scenarios
-- [ ] 3.4 Resolve `[[Title]]` and `[[Title|text]]` with the wikilink extension through titles and aliases, missing links styled and leading to creation; verify tests for the "Links between pages" scenarios
-- [ ] 3.5 Build edit and rename (alias kept for the former title), and rewrite `page_link` on save; verify tests for the "Edit a page" and "Pages linking here" scenarios
-- [ ] 3.6 Build the editor with a Markdown text area and HTMX preview; verify a test that the preview renders the same HTML as the page view
-- [ ] 3.7 Build the home page list, newest change first, with type filter; verify tests for the "List pages" scenarios
-- [ ] 3.8 Build delete, the deleted pages list (who, when, removal date) and restore; verify tests for the "Delete and restore a page" scenarios and the "Deleted pages list" scenario
-- [ ] 3.9 Add the daily cleanup removing pages deleted more than 30 days ago, with their history; verify tests for the "Removal after 30 days" and "Restored before removal" scenarios with a controllable clock
-- [ ] 3.10 Check viewing, editing (on a phone, by touch), list and deleted pages in a browser with Playwright at phone, tablet and desktop widths
+- [x] 3.1 Add the `page`, `page_revision`, `page_alias` and `page_link` migrations and the page store; verify the migrations apply in `make check`
+- [x] 3.2 Render Markdown with goldmark (GFM tables and task lists) with raw HTML escaped as text; verify unit tests for the "Formatted text in Markdown" scenarios, including a script tag and a `javascript:` link
+- [x] 3.3 Build create and view page with the title rules and the language choice preset from `HAUSBUCH_DEFAULT_LANGUAGE`; verify tests for the "Create a page" and "Page language" scenarios
+- [x] 3.4 Resolve `[[Title]]` and `[[Title|text]]` with the wikilink extension through titles and aliases, missing links styled and leading to creation; verify tests for the "Links between pages" scenarios
+- [x] 3.5 Build edit and rename (alias kept for the former title), and rewrite `page_link` on save; verify tests for the "Edit a page" and "Pages linking here" scenarios
+- [x] 3.6 Build the editor with a Markdown text area and HTMX preview; verify a test that the preview renders the same HTML as the page view
+- [x] 3.7 Build the home page list, newest change first, with type filter; verify tests for the "List pages" scenarios
+- [x] 3.8 Build delete, the deleted pages list (who, when, removal date) and restore; verify tests for the "Delete and restore a page" scenarios and the "Deleted pages list" scenario
+- [x] 3.9 Add the daily cleanup removing pages deleted more than 30 days ago, with their history; verify tests for the "Removal after 30 days" and "Restored before removal" scenarios with a controllable clock
+- [x] 3.10 Check viewing, editing (on a phone, by touch), list and deleted pages in a browser with Playwright at phone, tablet and desktop widths
 
 ## 4. Templates (`page-templates`)
 

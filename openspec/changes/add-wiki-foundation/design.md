@@ -194,6 +194,7 @@ interfaces of the domain packages, so they are tested through `httptest` against
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
 | `HAUSBUCH_SESSION_TIMEOUT` | session duration, as a Go duration | `720h` (30 days) |
 | `HAUSBUCH_DEFAULT_LANGUAGE` | language preset on new pages, `en` or `it` | `en` |
+| `TZ` | time zone dates are shown in (the binary embeds the time zone database, which the image lacks) | `UTC` |
 
 ### Build, image and CI
 

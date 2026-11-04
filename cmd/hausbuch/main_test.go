@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"io"
+	"path/filepath"
+	"testing"
+)
 
 func TestHealthURL(t *testing.T) {
 	for addr, want := range map[string]string{
@@ -17,5 +21,14 @@ func TestHealthURL(t *testing.T) {
 	}
 	if _, err := healthURL("8080"); err == nil {
 		t.Error("healthURL accepted an address without a port separator")
+	}
+}
+
+func TestServeRefusesUnknownDefaultLanguage(t *testing.T) {
+	t.Setenv("HAUSBUCH_DEFAULT_LANGUAGE", "de")
+	t.Setenv("HAUSBUCH_DB_PATH", filepath.Join(t.TempDir(), "hausbuch.db"))
+	t.Setenv("HAUSBUCH_LISTEN", "127.0.0.1:0")
+	if code := run([]string{"serve"}, nil, io.Discard, io.Discard); code != 1 {
+		t.Errorf("exit code = %d, want 1", code)
 	}
 }

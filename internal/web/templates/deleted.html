@@ -1,0 +1,21 @@
+{{define "content"}}
+<h1 class="mb-2 text-xl font-semibold">Deleted pages</h1>
+<p class="mb-4 text-sm text-stone-500">Deleted pages can be restored, with their history, for 30 days.</p>
+{{with .Data}}
+<ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+  {{range .}}
+  <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+    <div class="min-w-0">
+      <span class="block break-words font-medium">{{.Title}}</span>
+      <span class="block text-sm text-stone-500">Deleted {{date .DeletedAt}} by {{.DeletedBy}} · removed on {{day .RemovedAt}}</span>
+    </div>
+    <form method="post" action="{{pageURL .ID}}/restore">
+      <button class="rounded border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100">Restore</button>
+    </form>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="text-stone-500">No deleted pages.</p>
+{{end}}
+{{end}}

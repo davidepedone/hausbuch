@@ -1,2 +1,8 @@
 @import "tailwindcss" source(none);
+@plugin "@tailwindcss/typography";
 @source "./templates";
+
+/* [[Title]] links to a page that doesn't exist yet. */
+.prose a.missing {
+  @apply text-red-700 decoration-dashed;
+}

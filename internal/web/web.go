@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidepedone/hausbuch/internal/page"
 	"github.com/davidepedone/hausbuch/internal/user"
 )
 
@@ -25,22 +26,33 @@ var files embed.FS
 const sessionCookie = "hausbuch_session"
 
 type server struct {
-	users *user.Store
-	pages map[string]*template.Template
+	users           *user.Store
+	pages           *page.Store
+	defaultLanguage string
+	templates       map[string]*template.Template
 }
 
-// page is what every template gets: the signed-in user, if any, and the page's own data.
-type page struct {
+// view is what every template gets: the signed-in user, if any, and the page's own data.
+type view struct {
 	User *user.User
 	Data any
 }
 
+var funcs = template.FuncMap{
+	"date":     func(t time.Time) string { return t.Local().Format("2 Jan 2006, 15:04") },
+	"day":      func(t time.Time) string { return t.Local().Format("2 Jan 2006") },
+	"language": page.LanguageName,
+	"pageURL":  pageURL,
+	"types":    func() []page.Type { return page.Types },
+}
+
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
-// check requires a session.
-func NewHandler(users *user.Store) http.Handler {
-	s := &server{users: users, pages: map[string]*template.Template{}}
-	for _, name := range []string{"home", "login", "password"} {
-		s.pages[name] = template.Must(template.ParseFS(files, "templates/layout.html", "templates/"+name+".html"))
+// check requires a session. New pages start in defaultLanguage.
+func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) http.Handler {
+	s := &server{users: users, pages: pages, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{}}
+	for _, name := range []string{"home", "login", "password", "page", "edit", "deleted"} {
+		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
+			ParseFS(files, "templates/layout.html", "templates/"+name+".html"))
 	}
 	static, err := fs.Sub(files, "static")
 	if err != nil {
@@ -48,9 +60,16 @@ func NewHandler(users *user.Store) http.Handler {
 	}
 
 	signedIn := http.NewServeMux()
-	signedIn.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		s.render(w, r, http.StatusOK, "home", nil)
-	})
+	signedIn.HandleFunc("GET /{$}", s.home)
+	signedIn.HandleFunc("GET /pages/new", s.newPage)
+	signedIn.HandleFunc("POST /pages", s.createPage)
+	signedIn.HandleFunc("GET /pages/{id}", s.viewPage)
+	signedIn.HandleFunc("GET /pages/{id}/edit", s.editPage)
+	signedIn.HandleFunc("POST /pages/{id}", s.savePage)
+	signedIn.HandleFunc("POST /pages/{id}/delete", s.deletePage)
+	signedIn.HandleFunc("POST /pages/{id}/restore", s.restorePage)
+	signedIn.HandleFunc("GET /deleted", s.deletedPages)
+	signedIn.HandleFunc("POST /preview", s.preview)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "password", passwordData{})
@@ -210,7 +229,7 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 // render executes a page into a buffer first, so that a template error becomes a clean 500 rather than half a page.
 func (s *server) render(w http.ResponseWriter, r *http.Request, status int, name string, data any) {
 	var buf bytes.Buffer
-	if err := s.pages[name].ExecuteTemplate(&buf, "layout", page{User: currentUser(r), Data: data}); err != nil {
+	if err := s.templates[name].ExecuteTemplate(&buf, "layout", view{User: currentUser(r), Data: data}); err != nil {
 		s.fail(w, err)
 		return
 	}

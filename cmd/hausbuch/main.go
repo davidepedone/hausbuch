@@ -9,9 +9,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"time"
+	_ "time/tzdata" // the image has no time zone database, and TZ needs one
 
 	"github.com/davidepedone/hausbuch/internal/db"
+	"github.com/davidepedone/hausbuch/internal/page"
 	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
 )
@@ -67,6 +70,11 @@ func serve(addr, dbPath string) int {
 		}
 		timeout = d
 	}
+	language := envOr("HAUSBUCH_DEFAULT_LANGUAGE", "en")
+	if !slices.Contains(page.Languages, language) {
+		slog.Error("HAUSBUCH_DEFAULT_LANGUAGE must be one of the page languages", "value", language, "languages", page.Languages)
+		return 1
+	}
 	database, err := db.Open(context.Background(), dbPath)
 	if err != nil {
 		slog.Error("cannot open database", "path", dbPath, "err", err)
@@ -74,11 +82,12 @@ func serve(addr, dbPath string) int {
 	}
 	users := user.NewStore(database)
 	users.SessionTimeout = timeout
-	go removeExpiredSessions(users)
+	pages := page.NewStore(database)
+	go cleanUp(users, pages)
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users),
+		Handler:           web.NewHandler(users, pages, language),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)
@@ -87,11 +96,15 @@ func serve(addr, dbPath string) int {
 	return 1
 }
 
-// removeExpiredSessions runs at start and then daily; signing in removes expired sessions too.
-func removeExpiredSessions(users *user.Store) {
+// cleanUp removes expired sessions and pages deleted for too long, at start and then daily. Signing in removes
+// expired sessions too, and creating or renaming a page removes such pages first.
+func cleanUp(users *user.Store, pages *page.Store) {
 	for {
 		if err := users.DeleteExpiredSessions(context.Background()); err != nil {
 			slog.Error("remove expired sessions", "err", err)
+		}
+		if err := pages.RemoveExpired(context.Background()); err != nil {
+			slog.Error("remove deleted pages", "err", err)
 		}
 		time.Sleep(24 * time.Hour)
 	}
