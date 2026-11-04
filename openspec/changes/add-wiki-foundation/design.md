@@ -23,7 +23,7 @@ scope and `specs/` for the required behaviour. Constraints that shape the approa
 
 - A rich-text (WYSIWYG) editor: Markdown in a text area with a preview.
 - Real-time collaborative editing: concurrent edits are detected on save, not merged live.
-- Horizontal scaling or several application instances: SQLite and the in-memory sign-in lock assume one process.
+- Horizontal scaling or several application instances: SQLite assumes one host.
 
 ## Decisions
 
@@ -57,8 +57,9 @@ SQLite is a single file in the container's data volume: no server, no second con
 edits, and full-text search through FTS5. `modernc.org/sqlite` is a pure-Go driver, so the binary builds with
 `CGO_ENABLED=0` and runs on a minimal image.
 
-The database runs in WAL mode with a busy timeout and foreign keys on. Writes that check-then-change (saving a page,
-the last-administrator rule) run in `BEGIN IMMEDIATE` transactions, so two requests can't both pass the check.
+The database runs in WAL mode with a busy timeout and foreign keys on, which also lets the `user` commands write
+while the server runs. Writes that check-then-change (saving a page) run in `BEGIN IMMEDIATE` transactions, so two
+requests can't both pass the check.
 
 Alternatives considered:
 - *PostgreSQL*: better tooling at scale, but a second container to run and back up, for no gain at this size.
@@ -71,7 +72,7 @@ they are only ever added, never edited.
 ### Data model
 
 - `app_user`: username, `username_key` (lower-cased, unique: SQLite's `NOCASE` only folds ASCII), display name,
-  password hash, administrator flag, enabled flag.
+  password hash, enabled flag, count of failed sign-ins in a row, locked until.
 - `session`: hash of the session token, user, created at, expires at. Only the hash is stored, so a copy of the
   database does not let anyone sign in.
 - `page`: current title, `title_key` (title trimmed and lower-cased, unique), type, current revision number,
@@ -90,17 +91,32 @@ deleted, which is what makes restore and history trivially correct.
 ### Authentication and sessions, written in the app
 
 Sessions are a random 256-bit token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` when the request arrives over
-HTTPS), looked up by hash in `session`, with the user's enabled flag checked on every request. Keeping them in our
-own table makes "end all sessions of a disabled user" one `DELETE`, and they survive restarts. Expired sessions are
-removed at sign-in and once a day.
+HTTPS), looked up by hash in `session`, with the user's enabled flag checked on every request. Expiry slides: a
+request pushes `expires_at` forward, written at most once an hour so reading a page doesn't always mean a write.
+Keeping them in our own table makes "end all sessions of a disabled user" one `DELETE`, which the `user disable`
+command can run from its own process, and they survive restarts. Expired sessions are removed at sign-in and once a
+day.
 
 Passwords are hashed with argon2id (`golang.org/x/crypto/argon2`), parameters stored with each hash. Cross-site
 request forgery is blocked by `http.CrossOriginProtection`, which rejects state-changing requests from other origins
-using the browser's `Sec-Fetch-Site`/`Origin` headers, with no tokens in forms. Failed sign-ins are counted per
-username in memory.
+using the browser's `Sec-Fetch-Site`/`Origin` headers, with no tokens in forms. Failed sign-ins are counted on the
+user's row, not in memory, so the lock survives restarts and `user unlock`, a separate process, can lift it. Unknown
+usernames are not counted: there is no row to lock, and the answer is the same anyway.
 
 Alternative considered: *`alexedwards/scs` for sessions*. Mature, but ending every session of one user needs
 iterating the whole store; our table is shorter than the glue around it.
+
+### Account management from the command line
+
+The same binary has subcommands: `hausbuch` (or `hausbuch serve`) runs the server, `hausbuch healthcheck` is the
+image's health check, and `hausbuch user add|list|set-password|disable|enable|unlock` manage accounts against the
+database at `HAUSBUCH_DB_PATH`. They are run with `docker exec -it <container> /hausbuch user …`; the image has no
+shell, so the command is given directly rather than typed into a shell inside the container. Passwords are read with
+`golang.org/x/term` (no echo) or from standard input when it is piped.
+
+Alternative considered: *an administrator role with account management in the web interface*. More convenient for
+day-to-day changes, but a role, its pages and the "last administrator" rule are code this change doesn't need: the
+person running the installation can already reach the container.
 
 ### Markdown rendering
 
@@ -148,7 +164,6 @@ interfaces of the domain packages, so they are tested through `httptest` against
 | --- | --- | --- |
 | `HAUSBUCH_DB_PATH` | SQLite database file | `/data/hausbuch.db` |
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
-| `HAUSBUCH_ADMIN_USERNAME`, `HAUSBUCH_ADMIN_PASSWORD` | first administrator, used only when no account exists | none |
 | `HAUSBUCH_SESSION_TIMEOUT` | session duration, as a Go duration | `720h` (30 days) |
 
 ### Build, image and CI
@@ -166,8 +181,11 @@ The image has no shell or `wget`, so the health check is the binary itself (`hau
   control; the README states that HTTPS is the deployer's responsibility.
 - [Every resident can write HTML-looking content seen by everyone] → HTML is escaped at render time and dangerous link
   schemes are refused; covered by tests on the `wiki-pages` HTML scenario.
-- [Brute-forcing a password from the local network] → argon2id hashes, and the 5-failure lock from `user-accounts`.
-  The counters live in memory and reset on restart: kept deliberately simple.
+- [Brute-forcing a password from the local network] → argon2id hashes, and the 3-failure lock from `user-accounts`.
+- [Anyone on the network can lock a resident out for 15 minutes by failing on purpose] → Accepted at home; `user
+  unlock` lifts it.
+- [Some container UIs open a terminal by starting a shell, which the image doesn't have] → The README shows the
+  `docker exec` form with the binary as the command; checked in the integration task.
 - [Copying the SQLite file while the app writes can produce a broken backup] → The README documents a safe backup
   (`sqlite3 … ".backup"` or stopping the container first).
 - [Hand-written session handling is security-sensitive code] → Kept small, and every `user-accounts` scenario plus
@@ -175,6 +193,6 @@ The image has no shell or `wget`, so the health check is the binary itself (`hau
 
 ## Migration Plan
 
-First release: nothing to migrate. Migrations create the schema on first start and the first administrator is
-created from the environment. Rolling back means running the previous image; from this change on, migrations are only
+First release: nothing to migrate. Migrations create the schema on first start; the first account is then added with
+`hausbuch user add`. Rolling back means running the previous image; from this change on, migrations are only
 ever added, never edited.

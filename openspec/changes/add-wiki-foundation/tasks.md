@@ -8,18 +8,18 @@
 - [ ] 1.4 Wire the Tailwind standalone CLI into `make check`, embed the compiled CSS, HTMX and the templates, and add a base responsive layout (header with app name, content area); verify the binary serves the CSS with no files next to it
 - [ ] 1.5 Add the Dockerfile (static build, distroless non-root, `/data` volume) and the `hausbuch healthcheck` subcommand used by `HEALTHCHECK`; verify `docker build` succeeds and the container reports healthy
 - [ ] 1.6 Add the GitHub Actions workflow: `make check` on every push, image published to `ghcr.io/davidepedone/hausbuch` (`latest` and commit SHA) on `main`; verify the workflow passes on the change's branch
-- [ ] 1.7 Write the README: what hausbuch is, how to run the image (example compose with a volume), the environment variables table, safe backups of the SQLite file, and that HTTPS is the deployer's responsibility; verify the example compose starts a working instance
+- [ ] 1.7 Write the README: what hausbuch is, how to run the image (example compose with a volume), the environment variables table, managing accounts with `docker exec … /hausbuch user …`, safe backups of the SQLite file, and that HTTPS is the deployer's responsibility; verify the example compose starts a working instance
 
 ## 2. Accounts and sign-in (`user-accounts`)
 
 - [ ] 2.1 Add the `app_user` migration and user store with argon2id hashing; verify tests that usernames equal ignoring case (including non-ASCII letters) are rejected and that a hash verifies only its own password
-- [ ] 2.2 Create the first administrator from `HAUSBUCH_ADMIN_USERNAME`/`HAUSBUCH_ADMIN_PASSWORD` when no account exists, refuse to start when they are missing then; verify tests for the three "First administrator from configuration" scenarios
+- [ ] 2.2 Add the subcommand dispatch (`serve` as default, `healthcheck`, `user`) and the `user add` and `user list` commands, reading passwords without echo or from piped standard input; verify tests for the "Add an account", "Duplicate username", "List accounts" and both "Passwords never on the command line" scenarios
 - [ ] 2.3 Add the `session` migration and session handling (random token, stored hashed, cookie flags, expiry from `HAUSBUCH_SESSION_TIMEOUT`, enabled check on every request); verify tests for the "Long-lived sessions" scenarios with a controllable clock and that a session survives a restart of the server
-- [ ] 2.4 Build the login page, sign out, the middleware requiring a session everywhere except login, static assets and `/healthz`, and `http.CrossOriginProtection`; verify `httptest` tests for the "Login required everywhere", "Sign in with username and password" and "Sign out" scenarios and that a cross-origin POST is refused
-- [ ] 2.5 Lock a username for 5 minutes after 5 failed sign-ins in a row; verify tests for both lock scenarios with a controllable clock
-- [ ] 2.6 Build account management for administrators (create, reset password, toggle administrator, disable/enable ending that user's sessions) and keep at least one enabled administrator; verify tests for the "Administrator manages accounts" and "At least one administrator remains" scenarios
+- [ ] 2.4 Build the login page, sign out, the middleware requiring a session everywhere except login, static assets and `/healthz`, and `http.CrossOriginProtection`; verify `httptest` tests for the "Login required everywhere", "Sign in with username and password", "No accounts yet" and "Sign out" scenarios and that a cross-origin POST is refused
+- [ ] 2.5 Lock a username for 15 minutes after 3 failed sign-ins in a row, counted on the user's row, and add `user unlock`; verify tests for the three "Repeated failed sign-ins lock the username" scenarios with a controllable clock, and that a lock survives a restart of the server
+- [ ] 2.6 Add `user set-password`, `user disable` (ending that user's sessions) and `user enable`, run against a database the server is using; verify tests for the "Set a password", "Disable an account" and "Enable an account" scenarios with the server running
 - [ ] 2.7 Build "change my password"; verify tests for both scenarios
-- [ ] 2.8 Check login, account management and password change in a browser with Playwright at phone, tablet and desktop widths
+- [ ] 2.8 Check the login page (with and without accounts) and password change in a browser with Playwright at phone, tablet and desktop widths
 
 ## 3. Pages (`wiki-pages`)
 
@@ -56,7 +56,7 @@
 
 ## 7. Integration check
 
-- [ ] 7.1 Run the image from the README's example compose from scratch: first administrator, a second user, a page from each template, a link, a rename, a conflicting edit, a restore, a search, a container restart keeping the session; verify every step behaves as the specs say
+- [ ] 7.1 Run the image from the README's example compose from scratch: two accounts added with `docker exec`, a lock lifted with `user unlock`, a page from each template, a link, a rename, a conflicting edit, a restore, a search, a container restart keeping the session; verify every step behaves as the specs say
 
 ## Workflow follow-up
 

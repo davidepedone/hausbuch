@@ -9,9 +9,9 @@ search.
 
 ## What Changes
 
-- Residents sign in with their own account; nothing but the login page is reachable without signing in. An
-  administrator creates and manages accounts; there is no self-registration. The first administrator is created from
-  environment variables on first start.
+- Residents sign in with their own account; nothing but the login page is reachable without signing in. Accounts are
+  created and managed with commands of the application binary, run inside the container; there is no
+  self-registration and no administrator role.
 - Residents create, read, edit and delete pages written as formatted text, with links between pages. Deleted pages
   can be restored.
 - A new page starts from a template chosen by content type (Recipe, How-to, Where is it, or Blank). A template is a
@@ -31,13 +31,14 @@ search.
 - Structured fields for content types (e.g. searchable ingredient lists): pages stay free text.
 - Access from outside the home network, HTTPS termination, email or push notifications.
 - Languages other than English; per-page permissions (every resident can edit every page).
+- Account management in the web interface, and deleting accounts (they can only be disabled).
 
 ## Capabilities
 
 ### New Capabilities
 
-- `user-accounts`: residents' accounts, signing in and out, the administrator role and account management, the
-  first administrator's bootstrap.
+- `user-accounts`: residents' accounts, signing in and out, sessions, the sign-in lock, and account management from
+  the command line.
 - `wiki-pages`: creating, viewing, editing, listing, deleting and restoring pages; formatted text and links between
   pages.
 - `page-templates`: the content types a page can be created from and the skeleton each one provides.
@@ -52,6 +53,5 @@ None: this is the first change.
 ## Impact
 
 - New application code, build and Docker image; the stack is proposed in `design.md`.
-- A database holding accounts, pages and revisions; its location and the first administrator's credentials come from
-  environment variables.
-- README documents the image, its environment variables and how to run it.
+- A database holding accounts, pages and revisions; its location comes from an environment variable.
+- README documents the image, its environment variables, how to run it and how to manage accounts.

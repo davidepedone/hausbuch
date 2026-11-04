@@ -19,6 +19,7 @@ Spec-driven, with OpenSpec (`openspec/`):
 - The product is a generic Docker image. Nothing in this repo refers to a specific installation: configuration
   comes from environment variables, documented in the README.
 - Every page and endpoint requires login, except the login page itself. Being on the home network grants nothing.
-- Users are created by an administrator; there is no self-registration.
+- Accounts are managed with the binary's `user` commands, run inside the container; there is no self-registration
+  and no account management in the web interface.
 - UI, code, comments, commit messages and docs are in English.
 - The UI is responsive: it must work well on desktop, tablet and phone.
