@@ -9,8 +9,16 @@
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-900">
   <header class="border-b border-stone-200 bg-white">
-    <div class="mx-auto flex max-w-3xl items-center px-4 py-3">
-      <a href="/" class="text-lg font-semibold">hausbuch</a>
+    <div class="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3">
+      <a href="/" class="shrink-0 text-lg font-semibold">hausbuch</a>
+      {{with .User}}
+      <nav class="ml-auto flex min-w-0 items-center gap-3 text-sm">
+        <a href="/account/password" class="truncate text-stone-600 hover:text-stone-900">{{.DisplayName}}</a>
+        <form method="post" action="/logout">
+          <button class="whitespace-nowrap rounded px-2 py-1 text-stone-600 hover:bg-stone-100 hover:text-stone-900">Sign out</button>
+        </form>
+      </nav>
+      {{end}}
     </div>
   </header>
   <main class="mx-auto max-w-3xl px-4 py-6">

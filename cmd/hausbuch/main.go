@@ -1,9 +1,10 @@
-// Command hausbuch runs the household wiki server.
+// Command hausbuch runs the household wiki server and manages its accounts.
 package main
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,35 +12,88 @@ import (
 	"time"
 
 	"github.com/davidepedone/hausbuch/internal/db"
+	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
 )
 
-func main() {
-	addr := envOr("HAUSBUCH_LISTEN", ":8080")
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := healthcheck(addr); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
-	}
+const usage = `Usage:
+  hausbuch [serve]    run the server
+  hausbuch healthcheck
+  hausbuch user ...   manage accounts (hausbuch user help)
+`
 
+func main() {
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	cmd := "serve"
+	if len(args) > 0 {
+		cmd, args = args[0], args[1:]
+	}
+	addr := envOr("HAUSBUCH_LISTEN", ":8080")
 	dbPath := envOr("HAUSBUCH_DB_PATH", "/data/hausbuch.db")
-	_, err := db.Open(context.Background(), dbPath)
+
+	switch cmd {
+	case "serve":
+		return serve(addr, dbPath)
+	case "healthcheck":
+		if err := healthcheck(addr); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	case "user":
+		database, err := db.Open(context.Background(), dbPath)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		defer database.Close()
+		return runUser(context.Background(), user.NewStore(database), args, stdin, stdout, stderr)
+	default:
+		fmt.Fprint(stderr, usage)
+		return 2
+	}
+}
+
+func serve(addr, dbPath string) int {
+	timeout := user.DefaultSessionTimeout
+	if v := os.Getenv("HAUSBUCH_SESSION_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			slog.Error("HAUSBUCH_SESSION_TIMEOUT must be a positive duration such as 720h", "value", v)
+			return 1
+		}
+		timeout = d
+	}
+	database, err := db.Open(context.Background(), dbPath)
 	if err != nil {
 		slog.Error("cannot open database", "path", dbPath, "err", err)
-		os.Exit(1)
+		return 1
 	}
+	users := user.NewStore(database)
+	users.SessionTimeout = timeout
+	go removeExpiredSessions(users)
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(),
+		Handler:           web.NewHandler(users),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)
-	if err := srv.ListenAndServe(); err != nil {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+	err = srv.ListenAndServe()
+	slog.Error("server stopped", "err", err)
+	return 1
+}
+
+// removeExpiredSessions runs at start and then daily; signing in removes expired sessions too.
+func removeExpiredSessions(users *user.Store) {
+	for {
+		if err := users.DeleteExpiredSessions(context.Background()); err != nil {
+			slog.Error("remove expired sessions", "err", err)
+		}
+		time.Sleep(24 * time.Hour)
 	}
 }
 
