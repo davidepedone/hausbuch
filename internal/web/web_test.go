@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/davidepedone/hausbuch/internal/db"
+	"github.com/davidepedone/hausbuch/internal/page"
 	"github.com/davidepedone/hausbuch/internal/user"
 )
 
@@ -19,21 +20,27 @@ type testApp struct {
 	t     *testing.T
 	srv   *httptest.Server
 	users *user.Store
+	pages *page.Store
 }
 
 func newApp(t *testing.T) *testApp {
+	return newAppIn(t, "en")
+}
+
+// newAppIn starts the app with new pages defaulting to language.
+func newAppIn(t *testing.T, language string) *testApp {
 	t.Helper()
 	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	users := user.NewStore(database)
-	srv := httptest.NewServer(NewHandler(users))
+	users, pages := user.NewStore(database), page.NewStore(database)
+	srv := httptest.NewServer(NewHandler(users, pages, language))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = database.Close()
 	})
-	return &testApp{t: t, srv: srv, users: users}
+	return &testApp{t: t, srv: srv, users: users, pages: pages}
 }
 
 func (a *testApp) addUser(username, displayName, password string) user.User {

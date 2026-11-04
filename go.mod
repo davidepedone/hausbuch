@@ -4,6 +4,8 @@ go 1.27.3
 
 require (
 	github.com/pressly/goose/v3 v3.29.0
+	github.com/yuin/goldmark v1.8.7
+	go.abhg.dev/goldmark/wikilink v0.6.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.61.1

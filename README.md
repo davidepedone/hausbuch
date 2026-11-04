@@ -38,6 +38,8 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_DB_PATH` | SQLite database file | `/data/hausbuch.db` |
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
 | `HAUSBUCH_SESSION_TIMEOUT` | how long a session lasts without being used, as a Go duration | `720h` (30 days) |
+| `HAUSBUCH_DEFAULT_LANGUAGE` | language new pages start in: `en` (English) or `it` (Italian) | `en` |
+| `TZ` | time zone dates are shown in, such as `Europe/Rome` | `UTC` |
 
 ### Accounts
 

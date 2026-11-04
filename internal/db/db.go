@@ -16,8 +16,9 @@ import (
 var migrations embed.FS
 
 // Pragmas go in the DSN rather than in a PRAGMA statement after opening, so that every connection of the pool gets
-// them, not only the first one.
-const pragmas = "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+// them, not only the first one. Transactions start with BEGIN IMMEDIATE, taking the write lock at once: a
+// transaction that checks and then writes (is the title free?) can't have its check go stale before it writes.
+const pragmas = "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_txlock=immediate"
 
 // Open opens the SQLite database at path, creating it if needed, and applies pending migrations.
 func Open(ctx context.Context, path string) (*sql.DB, error) {
