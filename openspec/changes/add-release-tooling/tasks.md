@@ -9,6 +9,6 @@
 
 ## 2. First release
 
-- [ ] 2.1 After merge, run `scripts/release.sh` on `main`; verify with `docker buildx imagetools inspect` that `:<version>` and `:candidate` exist for `linux/amd64` and `linux/arm64`, and that the git tag and GitHub release exist
-- [ ] 2.2 Run `scripts/promote.sh`; verify `:stable` has the same digest as `:<version>`
-- [ ] 2.3 Delete the package versions tagged `latest` or with a commit SHA; verify the package lists only the release version with `candidate` and `stable`, is still public, and `docker pull ghcr.io/davidepedone/hausbuch:stable` works logged out
+- [x] 2.1 After merge, run `scripts/release.sh` on `main`; verify with `docker buildx imagetools inspect` that `:<version>` and `:candidate` exist for `linux/amd64` and `linux/arm64`, and that the git tag and GitHub release exist
+- [x] 2.2 Run `scripts/promote.sh`; verify `:stable` has the same digest as `:<version>`
+- [x] 2.3 Delete the package versions tagged `latest` or with a commit SHA; verify the package lists only the release version with `candidate` and `stable`, is still public, and `docker pull ghcr.io/davidepedone/hausbuch:stable` works logged out
