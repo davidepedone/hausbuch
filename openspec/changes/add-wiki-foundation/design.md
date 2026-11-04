@@ -75,15 +75,15 @@ they are only ever added, never edited.
   password hash, enabled flag, count of failed sign-ins in a row, locked until.
 - `session`: hash of the session token, user, created at, expires at. Only the hash is stored, so a copy of the
   database does not let anyone sign in.
-- `page`: current title, `title_key` (title trimmed and lower-cased, unique), type, current revision number,
+- `page`: current title, `title_key` (title trimmed and lower-cased, unique), type, language, current revision number,
   `deleted_at`, `deleted_by`.
-- `page_revision`: page, revision number (1, 2, …), title, type, body, author, created at. Append-only.
+- `page_revision`: page, revision number (1, 2, …), title, type, language, body, author, created at. Append-only.
 - `page_alias`: former `title_key`s of a page, so `[[Old title]]` keeps resolving after a rename. A title that is an
   alias of another page counts as taken; renaming a page back to one of its own aliases removes the alias.
 - `page_link`: from page → linked `title_key`, rewritten on every save of the linking page; it powers "pages linking
   here" and nothing else.
-- `page_fts`: FTS5 table with the current title and body of pages that are not deleted, updated in the same
-  transaction as every save, delete and restore.
+- `page_fts`: FTS5 table with the stemmed current title and body of pages that are not deleted (see Search), updated
+  in the same transaction as every save, delete and restore.
 
 Deleting sets `deleted_at` and `deleted_by` and removes the page from `page_fts`; restoring does the opposite.
 Revisions of a live page are never deleted, which is what makes restore and history trivially correct. A cleanup run
@@ -134,8 +134,12 @@ deletions and restores without rewriting other pages.
 ### Templates
 
 Page types are a fixed set (Blank, Recipe, How-to, Where is it); each non-blank type has an embedded Markdown skeleton
-(`pagetypes/<type>.md`). Kept in code on purpose: creating templates from the UI is a later change and will introduce
-its own storage.
+per language (`pagetypes/<type>.<en|it>.md`). Kept in code on purpose: creating templates from the UI is a later
+change and will introduce its own storage.
+
+On the new-page form, changing type or language sends the current body and the skeleton it was prefilled with to the
+server (HTMX). If they are equal the server answers with the new skeleton, otherwise with the body unchanged, so no
+custom JavaScript is needed.
 
 ### Concurrent edits
 
@@ -156,10 +160,20 @@ a sleeping phone and so would not remove the revision check, and adds pages bloc
 
 ### Search
 
-FTS5 with the `porter unicode61 remove_diacritics 2` tokenizer gives English stemming and ignores case and accents.
-The user's words are each quoted before being passed to `MATCH`, so FTS5 operators in the input are taken literally
-and all words are required. Ordering puts pages whose title matches first, then `bm25()` rank; `snippet()` gives the
-excerpt.
+SQLite's FTS5 only stems English (the `porter` tokenizer), so stemming happens in Go, with the Snowball English and
+Italian stemmers (`blevesearch/snowballstem`; that it includes Italian is checked before relying on it). Text is split
+into words on anything that isn't a letter or digit (so "l'irrigazione" gives "l" and "irrigazione"), lower-cased and
+stemmed in the page's language. `page_fts` stores those stems, not the original text, in `title_stem` and
+`body_stem`, with the `unicode61 remove_diacritics 2` tokenizer, which then ignores accents on both sides.
+
+The searched words have no known language, so each one is stemmed both ways and becomes `("<en stem>" OR "<it
+stem>")`, quoted so FTS5 operators in the input are taken literally; the words are joined with `AND`, so all are
+required. A word matching across languages by chance is an accepted, rare false positive. Ordering puts pages whose
+`title_stem` matches first, then `bm25()` rank.
+
+FTS5's `snippet()` would cut the excerpt from the stems, so the excerpt is built in Go instead: the page body is split
+and stemmed the same way, the first word whose stem matches is located in the original text, and the words around it
+are returned, HTML-escaped, with the match highlighted.
 
 ### History diff
 
@@ -179,6 +193,7 @@ interfaces of the domain packages, so they are tested through `httptest` against
 | `HAUSBUCH_DB_PATH` | SQLite database file | `/data/hausbuch.db` |
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
 | `HAUSBUCH_SESSION_TIMEOUT` | session duration, as a Go duration | `720h` (30 days) |
+| `HAUSBUCH_DEFAULT_LANGUAGE` | language preset on new pages, `en` or `it` | `en` |
 
 ### Build, image and CI
 

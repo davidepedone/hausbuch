@@ -25,7 +25,7 @@
 
 - [ ] 3.1 Add the `page`, `page_revision`, `page_alias` and `page_link` migrations and the page store; verify the migrations apply in `make check`
 - [ ] 3.2 Render Markdown with goldmark (GFM tables and task lists) with raw HTML escaped as text; verify unit tests for the "Formatted text in Markdown" scenarios, including a script tag and a `javascript:` link
-- [ ] 3.3 Build create and view page with the title rules; verify tests for the "Create a page" scenarios
+- [ ] 3.3 Build create and view page with the title rules and the language choice preset from `HAUSBUCH_DEFAULT_LANGUAGE`; verify tests for the "Create a page" and "Page language" scenarios
 - [ ] 3.4 Resolve `[[Title]]` and `[[Title|text]]` with the wikilink extension through titles and aliases, missing links styled and leading to creation; verify tests for the "Links between pages" scenarios
 - [ ] 3.5 Build edit and rename (alias kept for the former title), and rewrite `page_link` on save; verify tests for the "Edit a page" and "Pages linking here" scenarios
 - [ ] 3.6 Build the editor with a Markdown text area and HTMX preview; verify a test that the preview renders the same HTML as the page view
@@ -36,9 +36,9 @@
 
 ## 4. Templates (`page-templates`)
 
-- [ ] 4.1 Add the page types and the embedded Recipe, How-to and Where is it skeletons; verify a test that each non-blank type's skeleton has its required headings
-- [ ] 4.2 Add type choice (Blank preselected) to page creation, prefilling the body, and type change on edit; verify tests for all `page-templates` scenarios
-- [ ] 4.3 Check type choice and the prefilled editor in a browser with Playwright at phone width
+- [ ] 4.1 Add the page types and the embedded Recipe, How-to and Where is it skeletons in English and Italian; verify a test that each non-blank type's skeleton has its required headings in both languages
+- [ ] 4.2 Add type choice (Blank preselected) to page creation, prefilling the body in the page's language, swapping the skeleton on type or language change while the body is untouched, and type change on edit; verify tests for all `page-templates` scenarios
+- [ ] 4.3 Check type and language choice and the prefilled editor in a browser with Playwright at phone width, including a switch before and after typing
 
 ## 5. History (`page-history`)
 
@@ -52,9 +52,10 @@
 
 ## 6. Search (`page-search`)
 
-- [ ] 6.1 Add the `page_fts` migration (porter + unicode61 without diacritics) kept current on save, delete and restore in the same transaction; verify a test that a saved page is findable, a deleted one is not, a restored one is again
-- [ ] 6.2 Build search with each word quoted, title matches first then `bm25()`, `snippet()` excerpts and the "nothing found" offer; verify tests for every `page-search` scenario, plus input containing FTS5 operators and quotes
-- [ ] 6.3 Put the search field in the header of every signed-in screen; verify the "Search from a page on a phone" scenario in a browser with Playwright at phone width
+- [ ] 6.1 Confirm a Go Snowball library with English and Italian stemmers (`blevesearch/snowballstem` first) and add the word splitting and stemming; verify unit tests that "descaling"/"descale" and "irrigazione"/"irrigare" share a stem and that "l'irrigazione" splits into two words
+- [ ] 6.2 Add the `page_fts` migration (stemmed title and body, unicode61 without diacritics) kept current on save, delete and restore in the same transaction; verify a test that a saved page is findable, a deleted one is not, a restored one is again
+- [ ] 6.3 Build search with each word stemmed both ways and quoted, title matches first then `bm25()`, excerpts built from the original body and the "nothing found" offer; verify tests for every `page-search` scenario, plus input containing FTS5 operators, quotes and HTML
+- [ ] 6.4 Put the search field in the header of every signed-in screen; verify the "Search from a page on a phone" scenario in a browser with Playwright at phone width
 
 ## 7. Integration check
 

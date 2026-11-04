@@ -19,7 +19,7 @@ search.
 - Every saved edit is kept as a revision recording who made it and when. Any resident can view an older revision,
   compare it with the current one and restore it. Two residents editing the same page at once cannot silently
   overwrite each other: opening a page someone else is editing shows a warning.
-- Full-text search over page titles and content.
+- Every page is in English or Italian; full-text search over page titles and content understands word forms in both.
 - A responsive UI in English that works on desktop, tablet and phone.
 - The application ships as a generic Docker image configured through environment variables.
 
@@ -30,7 +30,7 @@ search.
 - Creating or editing templates from the UI — a possible later change.
 - Structured fields for content types (e.g. searchable ingredient lists): pages stay free text.
 - Access from outside the home network, HTTPS termination, email or push notifications.
-- Languages other than English; per-page permissions (every resident can edit every page).
+- An interface in languages other than English, and page languages other than English and Italian; per-page permissions (every resident can edit every page).
 - Account management in the web interface, and deleting accounts (they can only be disabled).
 
 ## Capabilities

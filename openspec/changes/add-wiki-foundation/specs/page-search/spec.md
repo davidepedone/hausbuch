@@ -8,12 +8,20 @@ Lets residents find what they wrote down without remembering where, by searching
 
 ### Requirement: Search pages by words
 Any signed-in user SHALL be able to search pages by words. A page SHALL match when it contains all the searched
-words, in its title or body, ignoring case and accents and matching English word forms (e.g. "descale" finds
-"descaling"). Deleted pages SHALL NOT match.
+words, in its title or body, ignoring case and accents and matching word forms in the page's language. Deleted pages
+SHALL NOT match.
 
-#### Scenario: Word in the body
-- **WHEN** a user searches "descale" and the "Coffee machine" page body says "descaling every three months"
+#### Scenario: English word forms
+- **WHEN** a user searches "descale" and the English page "Coffee machine" says "descaling every three months"
 - **THEN** "Coffee machine" is among the results
+
+#### Scenario: Italian word forms
+- **WHEN** a user searches "irrigare" and the Italian page "Giardino" says "l'irrigazione parte ad aprile"
+- **THEN** "Giardino" is among the results
+
+#### Scenario: Searching without choosing a language
+- **WHEN** a user searches "ricetta" and there are matching pages in Italian
+- **THEN** they are found without the user saying which language they searched in
 
 #### Scenario: All words must match
 - **WHEN** a user searches "garden water" and a page contains "garden" but not "water"
