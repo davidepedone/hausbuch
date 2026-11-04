@@ -46,7 +46,15 @@ gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-
 # The image is pushed before the tag is created: a failed build leaves nothing behind and can be run again.
 # Docker's default builder can't build for two platforms at once: a builder of our own, in a container, can.
 docker buildx inspect hausbuch >/dev/null 2>&1 || docker buildx create --name hausbuch --driver docker-container >/dev/null
-docker buildx build --builder hausbuch --platform linux/amd64,linux/arm64 --push -t "$image:$version" -t "$image:candidate" .
+# No provenance attestations: they would show on ghcr.io as untagged versions of every release.
+docker buildx build --builder hausbuch --platform linux/amd64,linux/arm64 --provenance=false --push \
+    -t "$image:$version" -t "$image:candidate" .
+# The image of each platform gets a tag of its own too, so that every version on ghcr.io has a name.
+for arch in amd64 arm64; do
+    digest=$(docker buildx imagetools inspect "$image:$version" \
+        --format "{{range .Manifest.Manifests}}{{if eq .Platform.Architecture \"$arch\"}}{{.Digest}}{{end}}{{end}}")
+    docker buildx imagetools create --prefer-index=false -t "$image:$version-$arch" "$image@$digest"
+done
 
 git tag -a "v$version" -m "Release $version"
 git push -q origin "v$version"

@@ -30,7 +30,10 @@ logged in with `write:packages`, and `make check` passes. It then:
 2. builds and pushes in one step with `docker buildx build --platform linux/amd64,linux/arm64 --push`, tagged with the
    version and `candidate`, logging in to ghcr.io with the GitHub CLI's token. Docker's default builder (the `docker`
    driver) can't build for several platforms at once, so the script uses a builder named `hausbuch` with the
-   `docker-container` driver, creating it on first use; the machine's default builder is left alone;
+   `docker-container` driver, creating it on first use; the machine's default builder is left alone. Provenance
+   attestations are turned off, and the image of each platform is also tagged `YYYY.MM.N-amd64` and
+   `YYYY.MM.N-arm64` (a carbon copy of its manifest, `imagetools create --prefer-index=false`): ghcr.io lists every
+   manifest as a package version, and this way each of them has a name;
 3. creates the annotated tag `vYYYY.MM.N`, pushes it, and creates the GitHub release with generated notes.
 
 The image is pushed before the tag, so a failed build leaves no tag behind and can simply be run again.

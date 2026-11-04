@@ -31,6 +31,9 @@ Releases are versioned by date, `YYYY.MM.N` (the `N`th release of that month), a
 - `candidate`: the newest release, before it has been tried. Run it on one installation to try releases first.
 - `YYYY.MM.N`: one release, to pin an installation to it.
 
+Each release also has `YYYY.MM.N-amd64` and `YYYY.MM.N-arm64` tags, the image of one platform: use the tags above
+instead, which pick the right one.
+
 The container runs as the unprivileged user `65532`. With a named volume, as above, Docker gives it the right owner.
 With a bind mount (`./data:/data`), the host directory must be writable by that user:
 `chown 65532:65532 ./data`.
