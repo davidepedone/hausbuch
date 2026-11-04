@@ -19,7 +19,7 @@
 - [x] 2.5 Lock a username for 15 minutes after 3 failed sign-ins in a row, counted on the user's row, and add `user unlock`; verify tests for the three "Repeated failed sign-ins lock the username" scenarios with a controllable clock, and that a lock survives a restart of the server
 - [x] 2.6 Add `user set-password`, `user disable` (ending that user's sessions) and `user enable`, run against a database the server is using; verify tests for the "Set a password", "Disable an account" and "Enable an account" scenarios with the server running
 - [x] 2.7 Build "change my password"; verify tests for both scenarios
-- [ ] 2.8 Check the login page (with and without accounts) and password change in a browser with Playwright at phone, tablet and desktop widths
+- [x] 2.8 Check the login page (with and without accounts) and password change in a browser with Playwright at phone, tablet and desktop widths
 
 ## 3. Pages (`wiki-pages`)
 
