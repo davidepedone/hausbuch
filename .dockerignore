@@ -1,0 +1,5 @@
+.git
+.idea
+bin
+hausbuch
+internal/web/static/app.css

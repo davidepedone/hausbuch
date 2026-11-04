@@ -2,13 +2,13 @@
 
 ## 1. Project skeleton, build and image
 
-- [ ] 1.1 Install Go (Homebrew), create the Go module with `cmd/hausbuch` and the `internal/` packages, and an HTTP server answering `/healthz`; verify `go build ./...` succeeds and `curl localhost:8080/healthz` answers
-- [ ] 1.2 Add the `Makefile` with `make check` (`go vet`, `golangci-lint`, `go test ./...`, `go build`); verify `make check` is green
-- [ ] 1.3 Open the SQLite database from `HAUSBUCH_DB_PATH` (WAL, busy timeout, foreign keys) and apply embedded goose migrations at start; verify a test that a fresh file gets the schema and a second start applies nothing
-- [ ] 1.4 Wire the Tailwind standalone CLI into `make check`, embed the compiled CSS, HTMX and the templates, and add a base responsive layout (header with app name, content area); verify the binary serves the CSS with no files next to it
-- [ ] 1.5 Add the Dockerfile (static build, distroless non-root, `/data` volume) and the `hausbuch healthcheck` subcommand used by `HEALTHCHECK`; verify `docker build` succeeds and the container reports healthy
-- [ ] 1.6 Add the GitHub Actions workflow: `make check` on every push, image published to `ghcr.io/davidepedone/hausbuch` (`latest` and commit SHA) on `main`; verify the workflow passes on the change's branch
-- [ ] 1.7 Write the README: what hausbuch is, how to run the image (example compose with a volume), the environment variables table, managing accounts with `docker exec … /hausbuch user …`, safe backups of the SQLite file, and that HTTPS is the deployer's responsibility; verify the example compose starts a working instance
+- [x] 1.1 Install Go (Homebrew), create the Go module with `cmd/hausbuch` and the `internal/` packages, and an HTTP server answering `/healthz`; verify `go build ./...` succeeds and `curl localhost:8080/healthz` answers
+- [x] 1.2 Add the `Makefile` with `make check` (`go vet`, `golangci-lint`, `go test ./...`, `go build`); verify `make check` is green
+- [x] 1.3 Open the SQLite database from `HAUSBUCH_DB_PATH` (WAL, busy timeout, foreign keys) and apply embedded goose migrations at start; verify a test that a fresh file gets the schema and a second start applies nothing
+- [x] 1.4 Wire the Tailwind standalone CLI into `make check`, embed the compiled CSS, HTMX and the templates, and add a base responsive layout (header with app name, content area); verify the binary serves the CSS with no files next to it
+- [x] 1.5 Add the Dockerfile (static build, distroless non-root, `/data` volume) and the `hausbuch healthcheck` subcommand used by `HEALTHCHECK`; verify `docker build` succeeds and the container reports healthy
+- [x] 1.6 Add the GitHub Actions workflow: `make check` on every push, image published to `ghcr.io/davidepedone/hausbuch` (`latest` and commit SHA) on `main`; verify the workflow passes on the change's branch
+- [x] 1.7 Write the README: what hausbuch is, how to run the image (example compose with a volume), the environment variables table, managing accounts with `docker exec … /hausbuch user …`, safe backups of the SQLite file, and that HTTPS is the deployer's responsibility; verify the example compose starts a working instance
 
 ## 2. Accounts and sign-in (`user-accounts`)
 
