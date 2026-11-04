@@ -44,7 +44,9 @@ echo "Releasing $version ($(git rev-parse --short HEAD))"
 
 gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin >/dev/null
 # The image is pushed before the tag is created: a failed build leaves nothing behind and can be run again.
-docker buildx build --platform linux/amd64,linux/arm64 --push -t "$image:$version" -t "$image:candidate" .
+# Docker's default builder can't build for two platforms at once: a builder of our own, in a container, can.
+docker buildx inspect hausbuch >/dev/null 2>&1 || docker buildx create --name hausbuch --driver docker-container >/dev/null
+docker buildx build --builder hausbuch --platform linux/amd64,linux/arm64 --push -t "$image:$version" -t "$image:candidate" .
 
 git tag -a "v$version" -m "Release $version"
 git push -q origin "v$version"

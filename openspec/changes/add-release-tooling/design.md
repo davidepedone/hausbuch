@@ -28,7 +28,9 @@ logged in with `write:packages`, and `make check` passes. It then:
 1. computes the version: `YYYY.MM` of today plus one more than the highest `N` among the git tags `vYYYY.MM.N` of this
    month (so `1` for the first release of a month);
 2. builds and pushes in one step with `docker buildx build --platform linux/amd64,linux/arm64 --push`, tagged with the
-   version and `candidate`, logging in to ghcr.io with the GitHub CLI's token;
+   version and `candidate`, logging in to ghcr.io with the GitHub CLI's token. Docker's default builder (the `docker`
+   driver) can't build for several platforms at once, so the script uses a builder named `hausbuch` with the
+   `docker-container` driver, creating it on first use; the machine's default builder is left alone;
 3. creates the annotated tag `vYYYY.MM.N`, pushes it, and creates the GitHub release with generated notes.
 
 The image is pushed before the tag, so a failed build leaves no tag behind and can simply be run again.
