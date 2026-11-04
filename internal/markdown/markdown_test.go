@@ -102,3 +102,10 @@ func TestLinks(t *testing.T) {
 		t.Errorf("Links = %q, want %q", got, want)
 	}
 }
+
+func TestLineBreaksAreKept(t *testing.T) {
+	got := render(t, "Turn on in April.\nWater at 6:00.\n\nNew paragraph.")
+	if want := "<p>Turn on in April.<br>\nWater at 6:00.</p>\n<p>New paragraph.</p>\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

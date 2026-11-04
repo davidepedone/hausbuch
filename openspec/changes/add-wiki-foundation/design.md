@@ -125,7 +125,8 @@ person running the installation can already reach the container.
 
 ### Markdown rendering
 
-`yuin/goldmark` with its GFM extension (tables, task lists). Goldmark already refuses dangerous link schemes such as
+`yuin/goldmark` with its GFM extension (tables, task lists). A single line break in the text is kept as a line break (hard wraps), since pages are
+written line by line, often on a phone, and Markdown's joining of such lines would surprise their writers. Goldmark already refuses dangerous link schemes such as
 `javascript:`; raw HTML is rendered by a small custom renderer that escapes it, so it shows as the text the user
 typed instead of being dropped. `[[Title]]` and `[[Title|text]]` come from `go.abhg.dev/goldmark/wikilink`, with a
 resolver backed by `page` and `page_alias` and a renderer that marks missing pages, so links follow renames,

@@ -107,7 +107,7 @@ func TestConflictingSave(t *testing.T) {
 	}
 	mustContain(t, resp.body, "<strong>Anna</strong> changed this page", textarea("boil\nsalt\nserve\n"),
 		"+ pepper</span>", "- salt</span>", `name="revision" value="2"`)
-	if got := renderedBody(t, anna.view(path)); got != "<p>boil\npepper</p>\n" {
+	if got := renderedBody(t, anna.view(path)); got != "<p>boil<br>\npepper</p>\n" {
 		t.Errorf("conflicting save applied: %q", got)
 	}
 

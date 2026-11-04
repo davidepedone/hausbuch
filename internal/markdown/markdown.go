@@ -3,13 +3,14 @@ package markdown
 
 import (
 	"bytes"
-	"html/template"
+	htmltemplate "html/template"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 	"go.abhg.dev/goldmark/wikilink"
@@ -29,17 +30,21 @@ var wikilinkParser = util.Prioritized(&wikilink.Parser{}, 199)
 
 // Render returns the body as HTML. Raw HTML in the body is shown as the text that was typed, and goldmark already
 // leaves out the destination of links with dangerous schemes such as javascript:.
-func Render(src string, resolve Resolver) (template.HTML, error) {
+func Render(src string, resolve Resolver) (htmltemplate.HTML, error) {
 	md := goldmark.New(
 		goldmark.WithExtensions(extension.GFM),
 		goldmark.WithParserOptions(parser.WithInlineParsers(wikilinkParser)),
-		goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(&nodeRenderer{resolve}, 100))),
+		goldmark.WithRendererOptions(
+			renderer.WithNodeRenderers(util.Prioritized(&nodeRenderer{resolve}, 100)),
+			// Pages are written line by line, often on a phone: a line break stays a line break.
+			html.WithHardWraps(),
+		),
 	)
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(src), &buf); err != nil {
 		return "", err
 	}
-	return template.HTML(buf.String()), nil // safe: raw HTML in the body was escaped by nodeRenderer
+	return htmltemplate.HTML(buf.String()), nil // safe: raw HTML in the body was escaped by nodeRenderer
 }
 
 // Links returns the titles the body links to with [[Title]], each once, in order of appearance.
