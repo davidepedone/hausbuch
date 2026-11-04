@@ -13,7 +13,7 @@ search.
   created and managed with commands of the application binary, run inside the container; there is no
   self-registration and no administrator role.
 - Residents create, read, edit and delete pages written as formatted text, with links between pages. Deleted pages
-  can be restored.
+  can be restored for 30 days, then are removed for good.
 - A new page starts from a template chosen by content type (Recipe, How-to, Where is it, or Blank). A template is a
   text skeleton defined in the application; the page keeps its type so pages can be listed by type.
 - Every saved edit is kept as a revision recording who made it and when. Any resident can view an older revision,

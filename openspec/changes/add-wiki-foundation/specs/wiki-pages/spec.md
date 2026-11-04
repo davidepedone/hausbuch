@@ -95,6 +95,22 @@ history.
 - **WHEN** a user creates a page whose title matches a deleted page's
 - **THEN** the system refuses and offers to restore the deleted page
 
+### Requirement: Deleted pages are removed after 30 days
+A page that has stayed deleted for 30 days SHALL be removed for good, with its history. The deleted pages list SHALL
+show for each page who deleted it, when, and when it will be removed.
+
+#### Scenario: Removal after 30 days
+- **WHEN** a page was deleted more than 30 days ago and has not been restored
+- **THEN** it is no longer among the deleted pages, cannot be restored, and its title can be used for a new page
+
+#### Scenario: Restored before removal
+- **WHEN** a page deleted 29 days ago is restored
+- **THEN** it is not removed when the 30 days would have passed
+
+#### Scenario: Deleted pages list
+- **WHEN** a user opens the deleted pages
+- **THEN** each page shows who deleted it, when, and the date it will be removed
+
 ### Requirement: Usable on any screen size
 Every screen SHALL be usable on a phone, a tablet and a desktop browser without horizontal scrolling of the page,
 including reading and editing a page.

@@ -30,8 +30,9 @@
 - [ ] 3.5 Build edit and rename (alias kept for the former title), and rewrite `page_link` on save; verify tests for the "Edit a page" and "Pages linking here" scenarios
 - [ ] 3.6 Build the editor with a Markdown text area and HTMX preview; verify a test that the preview renders the same HTML as the page view
 - [ ] 3.7 Build the home page list, newest change first, with type filter; verify tests for the "List pages" scenarios
-- [ ] 3.8 Build delete, the deleted pages list and restore; verify tests for the "Delete and restore a page" scenarios
-- [ ] 3.9 Check viewing, editing (on a phone, by touch), list and deleted pages in a browser with Playwright at phone, tablet and desktop widths
+- [ ] 3.8 Build delete, the deleted pages list (who, when, removal date) and restore; verify tests for the "Delete and restore a page" scenarios and the "Deleted pages list" scenario
+- [ ] 3.9 Add the daily cleanup removing pages deleted more than 30 days ago, with their history; verify tests for the "Removal after 30 days" and "Restored before removal" scenarios with a controllable clock
+- [ ] 3.10 Check viewing, editing (on a phone, by touch), list and deleted pages in a browser with Playwright at phone, tablet and desktop widths
 
 ## 4. Templates (`page-templates`)
 

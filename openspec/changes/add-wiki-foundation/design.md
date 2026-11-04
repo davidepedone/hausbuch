@@ -76,7 +76,7 @@ they are only ever added, never edited.
 - `session`: hash of the session token, user, created at, expires at. Only the hash is stored, so a copy of the
   database does not let anyone sign in.
 - `page`: current title, `title_key` (title trimmed and lower-cased, unique), type, current revision number,
-  `deleted_at`.
+  `deleted_at`, `deleted_by`.
 - `page_revision`: page, revision number (1, 2, …), title, type, body, author, created at. Append-only.
 - `page_alias`: former `title_key`s of a page, so `[[Old title]]` keeps resolving after a rename. A title that is an
   alias of another page counts as taken; renaming a page back to one of its own aliases removes the alias.
@@ -85,8 +85,13 @@ they are only ever added, never edited.
 - `page_fts`: FTS5 table with the current title and body of pages that are not deleted, updated in the same
   transaction as every save, delete and restore.
 
-Deleting sets `deleted_at` and removes the page from `page_fts`; restoring does the opposite. Revisions are never
-deleted, which is what makes restore and history trivially correct.
+Deleting sets `deleted_at` and `deleted_by` and removes the page from `page_fts`; restoring does the opposite.
+Revisions of a live page are never deleted, which is what makes restore and history trivially correct. A cleanup run
+at start and then once a day (the same one that removes expired sessions) deletes pages whose `deleted_at` is more
+than 30 days old; their revisions, aliases and links go with them through `ON DELETE CASCADE`. Between the 30 days
+passing and the next cleanup run, queries already treat such a page as gone (not listed, not restorable), and
+creating or renaming a page runs the cleanup first in its own transaction so the title is free despite the unique
+`title_key`. The exact time of the cleanup is therefore invisible.
 
 ### Authentication and sessions, written in the app
 

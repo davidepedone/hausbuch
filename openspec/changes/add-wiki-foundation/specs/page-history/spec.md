@@ -42,7 +42,7 @@ which removed.
 
 ### Requirement: Restore a revision
 Any signed-in user SHALL be able to restore an old revision. Restoring SHALL add a new revision, authored by them,
-with the old revision's content; no revision SHALL ever be removed.
+with the old revision's content, and SHALL NOT remove any revision.
 
 #### Scenario: Restore
 - **WHEN** a user restores the second revision of a page that has five
