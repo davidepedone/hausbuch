@@ -91,11 +91,14 @@ func (s *server) pageFromPath(w http.ResponseWriter, r *http.Request) (page.Page
 
 type editData struct {
 	ID        int64 // 0 for a new page
+	Revision  int   // the revision editing started from
 	Content   page.Content
 	Skeleton  string // for a new page, the skeleton its body was prefilled with
 	Languages []string
 	Error     string
 	Taken     *page.TitleTakenError
+	Conflict  *page.ConflictError
+	Changes   []page.DiffLine // with a conflict, what changed in the body since the revision editing started from
 }
 
 func (s *server) newPage(w http.ResponseWriter, r *http.Request) {
@@ -116,12 +119,52 @@ func (s *server) skeleton(w http.ResponseWriter, r *http.Request) {
 	s.renderPart(w, "edit", "body", editData{Content: c, Skeleton: prefilled})
 }
 
+type editingData struct {
+	Page    page.Page
+	Editors []editingView
+}
+
+type editingView struct{ Name, For string }
+
+// editPage opens the editor, unless someone else has it open: then it warns first, and opens it only "anyway".
 func (s *server) editPage(w http.ResponseWriter, r *http.Request) {
 	p, ok := s.pageFromPath(w, r)
 	if !ok {
 		return
 	}
-	s.renderEditor(w, r, http.StatusOK, editData{ID: p.ID, Content: p.Content})
+	u, now := currentUser(r), s.pages.Now()
+	if others := s.editors.others(p.ID, u.ID, now); len(others) > 0 && r.URL.Query().Get("anyway") == "" {
+		data := editingData{Page: p}
+		for _, ed := range others {
+			data.Editors = append(data.Editors, editingView{Name: ed.name, For: duration(now.Sub(ed.since))})
+		}
+		s.render(w, r, http.StatusOK, "editing", data)
+		return
+	}
+	s.editors.touch(p.ID, u.ID, u.DisplayName, now)
+	s.renderEditor(w, r, http.StatusOK, editData{ID: p.ID, Revision: p.Revision, Content: p.Content})
+}
+
+// stillEditing is the open editor's sign of activity.
+func (s *server) stillEditing(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Page not found.", http.StatusNotFound)
+		return
+	}
+	u := currentUser(r)
+	s.editors.touch(id, u.ID, u.DisplayName, s.pages.Now())
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) cancelEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Page not found.", http.StatusNotFound)
+		return
+	}
+	s.editors.close(id, currentUser(r).ID)
+	http.Redirect(w, r, pageURL(id), http.StatusSeeOther)
 }
 
 func (s *server) renderEditor(w http.ResponseWriter, r *http.Request, status int, data editData) {
@@ -160,17 +203,20 @@ func (s *server) savePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := s.content(r)
-	err := s.pages.Update(r.Context(), p.ID, currentUser(r).ID, c)
-	if s.refused(w, r, editData{ID: p.ID, Content: c}, err) {
+	base, _ := strconv.Atoi(r.PostFormValue("revision"))
+	err := s.pages.Update(r.Context(), p.ID, currentUser(r).ID, base, c)
+	if s.refused(w, r, editData{ID: p.ID, Revision: base, Content: c}, err) {
 		return
 	}
+	s.editors.close(p.ID, currentUser(r).ID)
 	http.Redirect(w, r, pageURL(p.ID), http.StatusSeeOther)
 }
 
-// refused answers a save that failed: with the editor, still holding the user's text, when the title is the
-// problem. It reports whether there was anything to answer.
+// refused answers a save that failed: with the editor, still holding the user's text, when the title or a change
+// made meanwhile is the problem. It reports whether there was anything to answer.
 func (s *server) refused(w http.ResponseWriter, r *http.Request, data editData, err error) bool {
 	var taken *page.TitleTakenError
+	var conflict *page.ConflictError
 	status := http.StatusBadRequest
 	switch {
 	case err == nil:
@@ -179,6 +225,16 @@ func (s *server) refused(w http.ResponseWriter, r *http.Request, data editData, 
 		data.Error = "Give the page a title."
 	case errors.As(err, &taken):
 		data.Taken, status = taken, http.StatusConflict
+	case errors.As(err, &conflict):
+		from, err1 := s.pages.Revision(r.Context(), data.ID, data.Revision)
+		to, err2 := s.pages.Revision(r.Context(), data.ID, conflict.Revision)
+		if err := errors.Join(err1, err2); err != nil {
+			s.fail(w, err)
+			return true
+		}
+		// Saving again from the current revision is what the user does once they have reviewed the change.
+		data.Conflict, data.Changes, data.Revision = conflict, page.Diff(from.Body, to.Body), conflict.Revision
+		status = http.StatusConflict
 	case errors.Is(err, page.ErrNotFound):
 		http.Error(w, "Page not found.", http.StatusNotFound)
 		return true

@@ -1,0 +1,10 @@
+{{/* Parts shared by several pages. */}}
+
+{{/* diff shows the lines of a body diff: added, removed, unchanged. Inside <pre> every line break of the template
+     would show, so the lines are written without any. */}}
+{{define "diff"}}
+<pre class="overflow-x-auto rounded border border-stone-200 bg-white py-2 font-mono text-sm leading-relaxed">
+{{- range .}}<span class="block min-w-max px-3 {{if .Added}}bg-green-50 text-green-900{{else if .Removed}}bg-red-50 text-red-900 line-through decoration-red-300{{else}}text-stone-500{{end}}">{{if .Added}}+ {{else if .Removed}}- {{else}}  {{end}}{{.Text}}</span>
+{{- else}}<span class="block px-3 text-stone-500">No changes in the text.</span>
+{{- end}}</pre>
+{{end}}

@@ -121,7 +121,7 @@ func TestChangeType(t *testing.T) {
 		t.Error("the editor of an existing page swaps skeletons")
 	}
 
-	if resp := b.post(path, url.Values{"title": {"Irrigation"}, "type": {"where"}, "language": {"en"},
+	if resp := b.saveForm(path, url.Values{"title": {"Irrigation"}, "type": {"where"}, "language": {"en"},
 		"body": {body}}); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: %s", resp.Status)
 	}

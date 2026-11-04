@@ -69,7 +69,7 @@ func (f *fixture) get(id int64) Page {
 func (f *fixture) rename(u user.User, id int64, title string) error {
 	p := f.get(id)
 	p.Title = title
-	return f.pages.Update(ctx, id, u.ID, p.Content)
+	return f.pages.Update(ctx, id, u.ID, p.Revision, p.Content)
 }
 
 func (f *fixture) resolve(title string) int64 {
@@ -131,7 +131,7 @@ func TestEditBody(t *testing.T) {
 	f.now = f.now.Add(time.Hour)
 	p := f.get(id)
 	p.Body = "Boil salted water."
-	if err := f.pages.Update(ctx, id, f.marco.ID, p.Content); err != nil {
+	if err := f.pages.Update(ctx, id, f.marco.ID, p.Revision, p.Content); err != nil {
 		t.Fatal(err)
 	}
 	p = f.get(id)
@@ -145,7 +145,7 @@ func TestChangeLanguageKeepsBody(t *testing.T) {
 	id := f.create(f.anna, "Pasta", "Boil water.")
 	p := f.get(id)
 	p.Language = "it"
-	if err := f.pages.Update(ctx, id, f.anna.ID, p.Content); err != nil {
+	if err := f.pages.Update(ctx, id, f.anna.ID, p.Revision, p.Content); err != nil {
 		t.Fatal(err)
 	}
 	if p := f.get(id); p.Language != "it" || p.Body != "Boil water." {
@@ -243,7 +243,7 @@ func TestBacklinksFollowRenamesAndEdits(t *testing.T) {
 	}
 	p := f.get(descale)
 	p.Body = "No more link."
-	if err := f.pages.Update(ctx, descale, f.anna.ID, p.Content); err != nil {
+	if err := f.pages.Update(ctx, descale, f.anna.ID, p.Revision, p.Content); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := f.pages.Backlinks(ctx, machine); len(got) != 0 {
@@ -264,7 +264,7 @@ func TestListNewestChangeFirstWithTypeFilter(t *testing.T) {
 	f.now = f.now.Add(time.Minute)
 	p := f.get(pasta)
 	p.Type = Recipe
-	if err := f.pages.Update(ctx, pasta, f.marco.ID, p.Content); err != nil {
+	if err := f.pages.Update(ctx, pasta, f.marco.ID, p.Revision, p.Content); err != nil {
 		t.Fatal(err)
 	}
 

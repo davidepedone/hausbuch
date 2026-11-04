@@ -30,6 +30,7 @@ type server struct {
 	pages           *page.Store
 	defaultLanguage string
 	templates       map[string]*template.Template
+	editors         *editors
 }
 
 // view is what every template gets: the signed-in user, if any, and the page's own data.
@@ -40,6 +41,7 @@ type view struct {
 
 var funcs = template.FuncMap{
 	"date":     func(t time.Time) string { return t.Local().Format("2 Jan 2006, 15:04") },
+	"names":    joinNames,
 	"day":      func(t time.Time) string { return t.Local().Format("2 Jan 2006") },
 	"language": page.LanguageName,
 	"pageURL":  pageURL,
@@ -49,10 +51,12 @@ var funcs = template.FuncMap{
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
 // check requires a session. New pages start in defaultLanguage.
 func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) http.Handler {
-	s := &server{users: users, pages: pages, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{}}
-	for _, name := range []string{"home", "login", "password", "page", "edit", "deleted"} {
+	s := &server{users: users, pages: pages, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{},
+		editors: &editors{open: map[editorKey]*editor{}}}
+	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
+		"revision", "compare"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
-			ParseFS(files, "templates/layout.html", "templates/"+name+".html"))
+			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
 	static, err := fs.Sub(files, "static")
 	if err != nil {
@@ -71,6 +75,12 @@ func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) ht
 	signedIn.HandleFunc("GET /deleted", s.deletedPages)
 	signedIn.HandleFunc("POST /preview", s.preview)
 	signedIn.HandleFunc("POST /pages/skeleton", s.skeleton)
+	signedIn.HandleFunc("POST /pages/{id}/editing", s.stillEditing)
+	signedIn.HandleFunc("POST /pages/{id}/cancel", s.cancelEdit)
+	signedIn.HandleFunc("GET /pages/{id}/history", s.history)
+	signedIn.HandleFunc("GET /pages/{id}/revisions/{n}", s.revision)
+	signedIn.HandleFunc("GET /pages/{id}/revisions/{n}/compare", s.compare)
+	signedIn.HandleFunc("POST /pages/{id}/revisions/{n}/restore", s.restoreRevision)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "password", passwordData{})
