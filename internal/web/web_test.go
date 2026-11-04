@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -330,5 +332,24 @@ func TestChangePasswordRefused(t *testing.T) {
 	}
 	if r := app.browser().signIn("anna", "pw"); r.StatusCode != http.StatusSeeOther {
 		t.Errorf("the password changed after refused attempts: sign in with it gives %d", r.StatusCode)
+	}
+}
+
+// The sign-in page shows the icons too, so everything it refers to under /static/, the manifest's icons included,
+// must be reachable without a session.
+func TestLoginPageAssetsNeedNoSession(t *testing.T) {
+	b := newApp(t).browser()
+	page := b.get("/login").body + b.get("/static/manifest.json").body
+	paths := regexp.MustCompile(`/static/[\w.-]+`).FindAllString(page, -1)
+	for _, want := range []string{"/static/favicon.svg", "/static/apple-touch-icon.png", "/static/manifest.json",
+		"/static/icon-192.png", "/static/icon-512.png"} {
+		if !slices.Contains(paths, want) {
+			t.Errorf("%s not referred to", want)
+		}
+	}
+	for _, p := range paths {
+		if r := b.get(p); r.StatusCode != http.StatusOK {
+			t.Errorf("%s: %s", p, r.Status)
+		}
 	}
 }
