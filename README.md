@@ -14,7 +14,7 @@ it stores is one SQLite database in `/data`, so that directory must be on a volu
 ```yaml
 services:
   hausbuch:
-    image: ghcr.io/davidepedone/hausbuch:latest
+    image: ghcr.io/davidepedone/hausbuch:stable
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -24,6 +24,12 @@ services:
 volumes:
   hausbuch-data:
 ```
+
+Releases are versioned by date, `YYYY.MM.N` (the `N`th release of that month), and published under three kinds of tag:
+
+- `stable`: the newest release that has been tried; what an installation should normally run.
+- `candidate`: the newest release, before it has been tried. Run it on one installation to try releases first.
+- `YYYY.MM.N`: one release, to pin an installation to it.
 
 The container runs as the unprivileged user `65532`. With a named volume, as above, Docker gives it the right owner.
 With a bind mount (`./data:/data`), the host directory must be writable by that user:
@@ -87,3 +93,14 @@ HAUSBUCH_DB_PATH=./hausbuch.db HAUSBUCH_LISTEN=127.0.0.1:8080 ./hausbuch
 
 `make check` also generates `internal/web/static/app.css`; run `make css` after changing classes in the templates when
 not going through `make check`.
+
+### Releasing
+
+Releases are cut from an up-to-date, clean `main` on a machine with Docker (Buildx) and the GitHub CLI logged in with
+the `write:packages` scope:
+
+```sh
+scripts/release.sh             # make check, then the next YYYY.MM.N pushed as :candidate, git tag and GitHub release
+scripts/promote.sh             # once it has been tried: moves :stable onto the newest release
+scripts/promote.sh 2026.11.1   # or onto a given one, e.g. to roll back
+```
