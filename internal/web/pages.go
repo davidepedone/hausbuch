@@ -92,15 +92,28 @@ func (s *server) pageFromPath(w http.ResponseWriter, r *http.Request) (page.Page
 type editData struct {
 	ID        int64 // 0 for a new page
 	Content   page.Content
+	Skeleton  string // for a new page, the skeleton its body was prefilled with
 	Languages []string
 	Error     string
 	Taken     *page.TitleTakenError
 }
 
 func (s *server) newPage(w http.ResponseWriter, r *http.Request) {
+	body := page.Skeleton(page.Blank, s.defaultLanguage)
 	s.renderEditor(w, r, http.StatusOK, editData{Content: page.Content{
-		Title: r.URL.Query().Get("title"), Type: page.Blank, Language: s.defaultLanguage,
-	}})
+		Title: r.URL.Query().Get("title"), Type: page.Blank, Language: s.defaultLanguage, Body: body,
+	}, Skeleton: body})
+}
+
+// skeleton answers a change of type or language in the new page form with the body to show: the skeleton of the new
+// choice while the body is still the skeleton it was prefilled with, the body unchanged once the user has written.
+func (s *server) skeleton(w http.ResponseWriter, r *http.Request) {
+	c, prefilled := s.content(r), lf(r.PostFormValue("skeleton"))
+	if c.Body == prefilled {
+		c.Body = page.Skeleton(c.Type, c.Language)
+		prefilled = c.Body
+	}
+	s.renderPart(w, "edit", "body", editData{Content: c, Skeleton: prefilled})
 }
 
 func (s *server) editPage(w http.ResponseWriter, r *http.Request) {
@@ -116,24 +129,26 @@ func (s *server) renderEditor(w http.ResponseWriter, r *http.Request, status int
 	s.render(w, r, status, "edit", data)
 }
 
-// content reads the editor's form. Browsers send the text area's line breaks as CRLF; they are stored as LF.
-func (s *server) content(r *http.Request, t page.Type) page.Content {
+// content reads the editor's form.
+func (s *server) content(r *http.Request) page.Content {
+	t := page.Type(r.PostFormValue("type"))
+	if !slices.Contains(page.Types, t) {
+		t = page.Blank
+	}
 	lang := r.PostFormValue("language")
 	if !slices.Contains(page.Languages, lang) {
 		lang = s.defaultLanguage
 	}
-	return page.Content{
-		Title:    r.PostFormValue("title"),
-		Type:     t,
-		Language: lang,
-		Body:     strings.ReplaceAll(r.PostFormValue("body"), "\r\n", "\n"),
-	}
+	return page.Content{Title: r.PostFormValue("title"), Type: t, Language: lang, Body: lf(r.PostFormValue("body"))}
 }
 
+// lf turns the CRLF line breaks browsers send for form fields into the LF ones stored.
+func lf(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
+
 func (s *server) createPage(w http.ResponseWriter, r *http.Request) {
-	c := s.content(r, page.Blank)
+	c := s.content(r)
 	id, err := s.pages.Create(r.Context(), currentUser(r).ID, c)
-	if s.refused(w, r, editData{Content: c}, err) {
+	if s.refused(w, r, editData{Content: c, Skeleton: lf(r.PostFormValue("skeleton"))}, err) {
 		return
 	}
 	http.Redirect(w, r, pageURL(id), http.StatusSeeOther)
@@ -144,7 +159,7 @@ func (s *server) savePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	c := s.content(r, p.Type)
+	c := s.content(r)
 	err := s.pages.Update(r.Context(), p.ID, currentUser(r).ID, c)
 	if s.refused(w, r, editData{ID: p.ID, Content: c}, err) {
 		return
@@ -177,7 +192,7 @@ func (s *server) refused(w http.ResponseWriter, r *http.Request, data editData, 
 
 // preview answers the editor's preview request with the body as the page view would show it.
 func (s *server) preview(w http.ResponseWriter, r *http.Request) {
-	body, err := s.renderBody(r, strings.ReplaceAll(r.PostFormValue("body"), "\r\n", "\n"))
+	body, err := s.renderBody(r, lf(r.PostFormValue("body")))
 	if err != nil {
 		s.fail(w, err)
 		return

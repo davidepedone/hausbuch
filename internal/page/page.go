@@ -4,6 +4,7 @@ package page
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"strings"
 	"time"
@@ -35,6 +36,18 @@ func (t Type) Label() string {
 		return "Where is it"
 	}
 	return "Blank"
+}
+
+//go:embed pagetypes
+var skeletons embed.FS
+
+// Skeleton returns the text a new page of type t in language lang starts with: empty for Blank.
+func Skeleton(t Type, lang string) string {
+	b, err := skeletons.ReadFile("pagetypes/" + string(t) + "." + lang + ".md")
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // Languages lists the languages a page can be written in, as codes.

@@ -36,9 +36,9 @@
 
 ## 4. Templates (`page-templates`)
 
-- [ ] 4.1 Add the page types and the embedded Recipe, How-to and Where is it skeletons in English and Italian; verify a test that each non-blank type's skeleton has its required headings in both languages
-- [ ] 4.2 Add type choice (Blank preselected) to page creation, prefilling the body in the page's language, swapping the skeleton on type or language change while the body is untouched, and type change on edit; verify tests for all `page-templates` scenarios
-- [ ] 4.3 Check type and language choice and the prefilled editor in a browser with Playwright at phone width, including a switch before and after typing
+- [x] 4.1 Add the page types and the embedded Recipe, How-to and Where is it skeletons in English and Italian; verify a test that each non-blank type's skeleton has its required headings in both languages
+- [x] 4.2 Add type choice (Blank preselected) to page creation, prefilling the body in the page's language, swapping the skeleton on type or language change while the body is untouched, and type change on edit; verify tests for all `page-templates` scenarios
+- [x] 4.3 Check type and language choice and the prefilled editor in a browser with Playwright at phone width, including a switch before and after typing
 
 ## 5. History (`page-history`)
 
