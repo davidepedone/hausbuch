@@ -3,6 +3,7 @@
 
 # Go
 /hausbuch
+/hausbuch.db*
 *.test
 *.out
 go.work
