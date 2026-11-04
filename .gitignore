@@ -1,2 +1,13 @@
 .DS_Store
 .env
+
+# Go
+/hausbuch
+*.test
+*.out
+go.work
+go.work.sum
+
+# IntelliJ
+.idea/
+*.iml
