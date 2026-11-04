@@ -1,0 +1,64 @@
+# Tasks
+
+## 1. Project skeleton, build and image
+
+- [ ] 1.1 Install Go (Homebrew), create the Go module with `cmd/hausbuch` and the `internal/` packages, and an HTTP server answering `/healthz`; verify `go build ./...` succeeds and `curl localhost:8080/healthz` answers
+- [ ] 1.2 Add the `Makefile` with `make check` (`go vet`, `golangci-lint`, `go test ./...`, `go build`); verify `make check` is green
+- [ ] 1.3 Open the SQLite database from `HAUSBUCH_DB_PATH` (WAL, busy timeout, foreign keys) and apply embedded goose migrations at start; verify a test that a fresh file gets the schema and a second start applies nothing
+- [ ] 1.4 Wire the Tailwind standalone CLI into `make check`, embed the compiled CSS, HTMX and the templates, and add a base responsive layout (header with app name, content area); verify the binary serves the CSS with no files next to it
+- [ ] 1.5 Add the Dockerfile (static build, distroless non-root, `/data` volume) and the `hausbuch healthcheck` subcommand used by `HEALTHCHECK`; verify `docker build` succeeds and the container reports healthy
+- [ ] 1.6 Add the GitHub Actions workflow: `make check` on every push, image published to `ghcr.io/davidepedone/hausbuch` (`latest` and commit SHA) on `main`; verify the workflow passes on the change's branch
+- [ ] 1.7 Write the README: what hausbuch is, how to run the image (example compose with a volume), the environment variables table, safe backups of the SQLite file, and that HTTPS is the deployer's responsibility; verify the example compose starts a working instance
+
+## 2. Accounts and sign-in (`user-accounts`)
+
+- [ ] 2.1 Add the `app_user` migration and user store with argon2id hashing; verify tests that usernames equal ignoring case (including non-ASCII letters) are rejected and that a hash verifies only its own password
+- [ ] 2.2 Create the first administrator from `HAUSBUCH_ADMIN_USERNAME`/`HAUSBUCH_ADMIN_PASSWORD` when no account exists, refuse to start when they are missing then; verify tests for the three "First administrator from configuration" scenarios
+- [ ] 2.3 Add the `session` migration and session handling (random token, stored hashed, cookie flags, expiry from `HAUSBUCH_SESSION_TIMEOUT`, enabled check on every request); verify tests for the "Long-lived sessions" scenarios with a controllable clock and that a session survives a restart of the server
+- [ ] 2.4 Build the login page, sign out, the middleware requiring a session everywhere except login, static assets and `/healthz`, and `http.CrossOriginProtection`; verify `httptest` tests for the "Login required everywhere", "Sign in with username and password" and "Sign out" scenarios and that a cross-origin POST is refused
+- [ ] 2.5 Lock a username for 5 minutes after 5 failed sign-ins in a row; verify tests for both lock scenarios with a controllable clock
+- [ ] 2.6 Build account management for administrators (create, reset password, toggle administrator, disable/enable ending that user's sessions) and keep at least one enabled administrator; verify tests for the "Administrator manages accounts" and "At least one administrator remains" scenarios
+- [ ] 2.7 Build "change my password"; verify tests for both scenarios
+- [ ] 2.8 Check login, account management and password change in a browser with Playwright at phone, tablet and desktop widths
+
+## 3. Pages (`wiki-pages`)
+
+- [ ] 3.1 Add the `page`, `page_revision`, `page_alias` and `page_link` migrations and the page store; verify the migrations apply in `make check`
+- [ ] 3.2 Render Markdown with goldmark (GFM tables and task lists) with raw HTML escaped as text; verify unit tests for the "Formatted text in Markdown" scenarios, including a script tag and a `javascript:` link
+- [ ] 3.3 Build create and view page with the title rules; verify tests for the "Create a page" scenarios
+- [ ] 3.4 Resolve `[[Title]]` and `[[Title|text]]` with the wikilink extension through titles and aliases, missing links styled and leading to creation; verify tests for the "Links between pages" scenarios
+- [ ] 3.5 Build edit and rename (alias kept for the former title), and rewrite `page_link` on save; verify tests for the "Edit a page" and "Pages linking here" scenarios
+- [ ] 3.6 Build the editor with a Markdown text area and HTMX preview; verify a test that the preview renders the same HTML as the page view
+- [ ] 3.7 Build the home page list, newest change first, with type filter; verify tests for the "List pages" scenarios
+- [ ] 3.8 Build delete, the deleted pages list and restore; verify tests for the "Delete and restore a page" scenarios
+- [ ] 3.9 Check viewing, editing (on a phone, by touch), list and deleted pages in a browser with Playwright at phone, tablet and desktop widths
+
+## 4. Templates (`page-templates`)
+
+- [ ] 4.1 Add the page types and the embedded Recipe, How-to and Where is it skeletons; verify a test that each non-blank type's skeleton has its required headings
+- [ ] 4.2 Add type choice (Blank preselected) to page creation, prefilling the body, and type change on edit; verify tests for all `page-templates` scenarios
+- [ ] 4.3 Check type choice and the prefilled editor in a browser with Playwright at phone width
+
+## 5. History (`page-history`)
+
+- [ ] 5.1 Append a revision on every save that changes title, type or body, and none otherwise; verify tests for the "Every save is a revision" scenarios
+- [ ] 5.2 Build the history list and the read-only revision view; verify tests for the "View the history of a page" scenarios
+- [ ] 5.3 Build the line diff between a revision and the current version; verify the "Compare" scenario test
+- [ ] 5.4 Build restore of a revision as a new revision; verify the "Restore" scenario test
+- [ ] 5.5 Reject saves based on an outdated revision with the conflict screen (user's text kept, who changed it, diff), the check running in a `BEGIN IMMEDIATE` transaction; verify tests for the "Concurrent edits do not overwrite each other" scenarios, including two saves racing in parallel
+- [ ] 5.6 Check history, diff and the conflict screen in a browser with Playwright at phone and desktop widths
+
+## 6. Search (`page-search`)
+
+- [ ] 6.1 Add the `page_fts` migration (porter + unicode61 without diacritics) kept current on save, delete and restore in the same transaction; verify a test that a saved page is findable, a deleted one is not, a restored one is again
+- [ ] 6.2 Build search with each word quoted, title matches first then `bm25()`, `snippet()` excerpts and the "nothing found" offer; verify tests for every `page-search` scenario, plus input containing FTS5 operators and quotes
+- [ ] 6.3 Put the search field in the header of every signed-in screen; verify the "Search from a page on a phone" scenario in a browser with Playwright at phone width
+
+## 7. Integration check
+
+- [ ] 7.1 Run the image from the README's example compose from scratch: first administrator, a second user, a page from each template, a link, a rename, a conflicting edit, a restore, a search, a container restart keeping the session; verify every step behaves as the specs say
+
+## Workflow follow-up
+
+- Open the pull request for the change's branch and merge it once reviewed.
+- Archive the change with `/opsx:archive`, which moves its spec deltas into `openspec/specs/`.
