@@ -144,9 +144,18 @@ func (s *Store) Create(ctx context.Context, userID int64, c Content) (int64, err
 	return id, err
 }
 
-// Update saves c as the page's new revision, authored by the user. A rename keeps the former title as an alias, so
-// links using it keep leading to the page.
-func (s *Store) Update(ctx context.Context, id, userID int64, c Content) error {
+// ConflictError means the page changed since the revision a save was based on.
+type ConflictError struct {
+	Revision int      // the current revision
+	By       []string // display names of who saved since, in order
+}
+
+func (e *ConflictError) Error() string { return "the page changed meanwhile" }
+
+// Update saves c as the page's new revision, authored by the user, unless it changes nothing. base is the revision the
+// user started editing from: if the page has changed since, nothing is saved and the error is a *ConflictError. A
+// rename keeps the former title as an alias, so links using it keep leading to the page.
+func (s *Store) Update(ctx context.Context, id, userID int64, base int, c Content) error {
 	c.Title = strings.TrimSpace(c.Title)
 	if c.Title == "" {
 		return ErrEmptyTitle
@@ -156,13 +165,24 @@ func (s *Store) Update(ctx context.Context, id, userID int64, c Content) error {
 	}
 	return s.inTx(ctx, func(tx *sql.Tx) error {
 		var oldKey string
-		err := tx.QueryRowContext(ctx, "SELECT title_key FROM page WHERE id = ? AND deleted_at IS NULL", id).
-			Scan(&oldKey)
+		var current int
+		var old Content
+		err := tx.QueryRowContext(ctx, `
+			SELECT p.title_key, p.revision, r.title, r.type, r.language, r.body
+			FROM page p JOIN page_revision r ON r.page_id = p.id AND r.number = p.revision
+			WHERE p.id = ? AND p.deleted_at IS NULL`, id).
+			Scan(&oldKey, &current, &old.Title, &old.Type, &old.Language, &old.Body)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		if current != base {
+			return conflict(ctx, tx, id, base, current)
+		}
+		if c == old {
+			return nil
 		}
 		if newKey := titleKey(c.Title); newKey != oldKey {
 			if err := titleFree(ctx, tx, c.Title, id); err != nil {
@@ -183,6 +203,28 @@ func (s *Store) Update(ctx context.Context, id, userID int64, c Content) error {
 		}
 		return s.appendRevision(ctx, tx, id, userID, c)
 	})
+}
+
+func conflict(ctx context.Context, tx *sql.Tx, id int64, base, current int) error {
+	e := &ConflictError{Revision: current}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT u.display_name FROM page_revision r JOIN app_user u ON u.id = r.author_id
+		WHERE r.page_id = ? AND r.number > ? GROUP BY u.id ORDER BY MIN(r.number)`, id, base)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		e.By = append(e.By, name)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return e
 }
 
 // titleFree returns a *TitleTakenError if a page other than self has the title, as its title or a former one.
@@ -302,6 +344,53 @@ func (s *Store) Backlinks(ctx context.Context, id int64) ([]Page, error) {
 			SELECT l.page_id FROM page_link l
 			WHERE l.title_key IN (SELECT title_key FROM page WHERE id = ? UNION SELECT title_key FROM page_alias WHERE page_id = ?))
 		ORDER BY p.title_key`, id, id, id)
+}
+
+// Revision is a saved version of a page.
+type Revision struct {
+	Number int
+	Content
+	Author    string // display name
+	CreatedAt time.Time
+}
+
+const selectRevisions = `
+	SELECT r.number, r.title, r.type, r.language, r.body, u.display_name, r.created_at
+	FROM page_revision r JOIN app_user u ON u.id = r.author_id WHERE r.page_id = ?`
+
+func scanRevision(row interface{ Scan(...any) error }) (Revision, error) {
+	var r Revision
+	var createdAt int64
+	err := row.Scan(&r.Number, &r.Title, &r.Type, &r.Language, &r.Body, &r.Author, &createdAt)
+	r.CreatedAt = time.Unix(createdAt, 0)
+	return r, err
+}
+
+// Revisions returns every revision of the page, newest first.
+func (s *Store) Revisions(ctx context.Context, id int64) ([]Revision, error) {
+	rows, err := s.DB.QueryContext(ctx, selectRevisions+" ORDER BY r.number DESC", id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var revs []Revision
+	for rows.Next() {
+		r, err := scanRevision(rows)
+		if err != nil {
+			return nil, err
+		}
+		revs = append(revs, r)
+	}
+	return revs, rows.Err()
+}
+
+// Revision returns revision number n of the page.
+func (s *Store) Revision(ctx context.Context, id int64, n int) (Revision, error) {
+	r, err := scanRevision(s.DB.QueryRowContext(ctx, selectRevisions+" AND r.number = ?", id, n))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Revision{}, ErrNotFound
+	}
+	return r, err
 }
 
 // Delete moves the page among the deleted pages, recording who deleted it.

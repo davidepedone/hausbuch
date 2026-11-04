@@ -5,6 +5,7 @@
     <h1 class="min-w-0 break-words text-2xl font-semibold">{{.Page.Title}}</h1>
     <div class="flex items-center gap-2">
       <a href="{{pageURL .Page.ID}}/edit" class="rounded bg-stone-800 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700">Edit</a>
+      <a href="{{pageURL .Page.ID}}/history" class="rounded border border-stone-300 px-3 py-2 text-sm hover:bg-stone-100">History</a>
       <form method="post" action="{{pageURL .Page.ID}}/delete">
         <button class="rounded border border-stone-300 px-3 py-2 text-sm hover:bg-stone-100">Delete</button>
       </form>

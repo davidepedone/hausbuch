@@ -35,7 +35,18 @@ func (b *browser) create(title, body string) string {
 
 func (b *browser) save(path, title, body string) response {
 	b.app.t.Helper()
-	return b.post(path, url.Values{"title": {title}, "language": {"en"}, "body": {body}})
+	return b.saveForm(path, url.Values{"title": {title}, "language": {"en"}, "body": {body}})
+}
+
+// saveForm submits the editor of the page at path, started from its current revision.
+func (b *browser) saveForm(path string, form url.Values) response {
+	b.app.t.Helper()
+	p, err := b.app.pages.Get(context.Background(), idOf(b.app.t, path))
+	if err != nil {
+		b.app.t.Fatal(err)
+	}
+	form.Set("revision", strconv.Itoa(p.Revision))
+	return b.post(path, form)
 }
 
 // view returns the page at path, failing unless it is shown.
@@ -112,7 +123,7 @@ func TestChangeLanguage(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	path := b.create("Pasta", "Boil water.")
-	resp := b.post(path, url.Values{"title": {"Pasta"}, "language": {"it"}, "body": {"Boil water."}})
+	resp := b.saveForm(path, url.Values{"title": {"Pasta"}, "language": {"it"}, "body": {"Boil water."}})
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: %s", resp.Status)
 	}

@@ -1,0 +1,20 @@
+{{define "content"}}
+{{with .Data}}
+<p class="mb-1 text-sm"><a href="{{pageURL .Page.ID}}" class="text-stone-500 underline hover:text-stone-900">{{.Page.Title}}</a></p>
+<h1 class="mb-4 text-xl font-semibold">History</h1>
+<ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+  {{$page := .Page}}
+  {{range .Revisions}}
+  <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+    <div class="min-w-0">
+      <a href="{{pageURL $page.ID}}/revisions/{{.Number}}" class="block break-words font-medium underline">Revision {{.Number}}{{if eq .Number $page.Revision}} (current){{end}}</a>
+      <span class="block text-sm text-stone-500">{{date .CreatedAt}} by {{.Author}}</span>
+    </div>
+    {{if ne .Number $page.Revision}}
+    <a href="{{pageURL $page.ID}}/revisions/{{.Number}}/compare" class="rounded border border-stone-300 px-3 py-1 text-sm hover:bg-stone-100">Compare with current</a>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+{{end}}

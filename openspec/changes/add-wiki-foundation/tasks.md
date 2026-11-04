@@ -42,13 +42,13 @@
 
 ## 5. History (`page-history`)
 
-- [ ] 5.1 Append a revision on every save that changes title, type or body, and none otherwise; verify tests for the "Every save is a revision" scenarios
-- [ ] 5.2 Build the history list and the read-only revision view; verify tests for the "View the history of a page" scenarios
-- [ ] 5.3 Build the line diff between a revision and the current version; verify the "Compare" scenario test
-- [ ] 5.4 Build restore of a revision as a new revision; verify the "Restore" scenario test
-- [ ] 5.5 Reject saves based on an outdated revision with the conflict screen (user's text kept, who changed it, diff), the check running in a `BEGIN IMMEDIATE` transaction; verify tests for the "Concurrent edits do not overwrite each other" scenarios, including two saves racing in parallel
-- [ ] 5.6 Track open editors in memory (30-second activity signal, removed on save or cancel, ignored after 2 minutes) and warn on opening the editor with "go back" and "edit anyway"; verify tests for every "Warning when someone else is editing" scenario with a controllable clock
-- [ ] 5.7 Check history, diff, the editing warning and the conflict screen in a browser with Playwright at phone and desktop widths, with two users in two browser contexts
+- [x] 5.1 Append a revision on every save that changes title, type, language or body, and none otherwise; verify tests for the "Every save is a revision" scenarios
+- [x] 5.2 Build the history list and the read-only revision view; verify tests for the "View the history of a page" scenarios
+- [x] 5.3 Build the line diff between a revision and the current version; verify the "Compare" scenario test
+- [x] 5.4 Build restore of a revision as a new revision; verify the "Restore" scenario test
+- [x] 5.5 Reject saves based on an outdated revision with the conflict screen (user's text kept, who changed it, diff), the check running in a `BEGIN IMMEDIATE` transaction; verify tests for the "Concurrent edits do not overwrite each other" scenarios, including two saves racing in parallel
+- [x] 5.6 Track open editors in memory (30-second activity signal, removed on save or cancel, ignored after 2 minutes) and warn on opening the editor with "go back" and "edit anyway"; verify tests for every "Warning when someone else is editing" scenario with a controllable clock
+- [x] 5.7 Check history, diff, the editing warning and the conflict screen in a browser with Playwright at phone and desktop widths, with two users in two browser contexts
 
 ## 6. Search (`page-search`)
 

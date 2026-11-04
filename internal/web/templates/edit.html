@@ -16,7 +16,22 @@
   {{end}}
 </div>
 {{end}}
+{{with .Conflict}}
+<div class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
+  <p><strong>{{names .By}}</strong> changed this page while you were editing it, so your text wasn't saved yet. It is
+    still below: check their change, then save again to replace it with yours.</p>
+</div>
+<details open class="mb-4">
+  <summary class="mb-2 cursor-pointer text-sm font-medium">Their change to the text</summary>
+  {{template "diff" $.Data.Changes}}
+</details>
+{{end}}
 <form method="post" action="{{if .ID}}{{pageURL .ID}}{{else}}/pages{{end}}" class="space-y-4">
+  {{if .ID}}
+  <input type="hidden" name="revision" value="{{.Revision}}">
+  {{/* Tells the server this editor is still open, for the warning others get when they open it. */}}
+  <div hx-post="{{pageURL .ID}}/editing" hx-trigger="every 30s" hx-swap="none"></div>
+  {{end}}
   <div class="flex flex-col gap-4 sm:flex-row">
     <label class="block flex-1">
       <span class="mb-1 block text-sm font-medium">Title</span>
@@ -50,7 +65,11 @@
     <button class="rounded bg-stone-800 px-4 py-2 font-medium text-white hover:bg-stone-700">Save</button>
     <button type="button" hx-post="/preview" hx-include="[name=body]" hx-target="#preview"
             class="rounded border border-stone-300 px-4 py-2 hover:bg-stone-100">Preview</button>
-    <a href="{{if .ID}}{{pageURL .ID}}{{else}}/{{end}}" class="rounded px-4 py-2 text-stone-600 hover:bg-stone-100">Cancel</a>
+    {{if .ID}}
+    <button formaction="{{pageURL .ID}}/cancel" formnovalidate class="rounded px-4 py-2 text-stone-600 hover:bg-stone-100">Cancel</button>
+    {{else}}
+    <a href="/" class="rounded px-4 py-2 text-stone-600 hover:bg-stone-100">Cancel</a>
+    {{end}}
   </div>
 </form>
 <div id="preview" class="prose prose-stone mt-6 max-w-none break-words empty:hidden"></div>
