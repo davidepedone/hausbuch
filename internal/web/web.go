@@ -70,6 +70,7 @@ func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) ht
 	signedIn.HandleFunc("POST /pages/{id}/restore", s.restorePage)
 	signedIn.HandleFunc("GET /deleted", s.deletedPages)
 	signedIn.HandleFunc("POST /preview", s.preview)
+	signedIn.HandleFunc("POST /pages/skeleton", s.skeleton)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "password", passwordData{})
@@ -235,6 +236,17 @@ func (s *server) render(w http.ResponseWriter, r *http.Request, status int, name
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
+	_, _ = buf.WriteTo(w)
+}
+
+// renderPart answers an HTMX request with one part, a template defined in the page's file, of a page.
+func (s *server) renderPart(w http.ResponseWriter, name, part string, data any) {
+	var buf bytes.Buffer
+	if err := s.templates[name].ExecuteTemplate(&buf, part, data); err != nil {
+		s.fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = buf.WriteTo(w)
 }
 
