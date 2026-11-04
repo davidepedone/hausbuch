@@ -18,7 +18,7 @@ search.
   text skeleton defined in the application; the page keeps its type so pages can be listed by type.
 - Every saved edit is kept as a revision recording who made it and when. Any resident can view an older revision,
   compare it with the current one and restore it. Two residents editing the same page at once cannot silently
-  overwrite each other.
+  overwrite each other: opening a page someone else is editing shows a warning.
 - Full-text search over page titles and content.
 - A responsive UI in English that works on desktop, tablet and phone.
 - The application ships as a generic Docker image configured through environment variables.

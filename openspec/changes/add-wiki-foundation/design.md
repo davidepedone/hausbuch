@@ -145,6 +145,15 @@ the editor, the screen names who saved meanwhile and shows the diff between the 
 current one. No three-way merge: with a few users editing rarely, conflicts are rare and resolving them by hand is
 enough.
 
+Who is editing is tracked in memory, per page and user, with the time the editor opened and the last sign of
+activity. An open editor sends an HTMX request every 30 seconds; saving and cancelling remove the entry at once;
+entries without activity for 2 minutes are ignored. Memory is enough: after a restart nobody's editor counts as open
+until its next request, which is at most 30 seconds of missing warnings. It is only a warning, not a lock, so a phone
+left with the editor open never blocks anyone, and the revision check above stays the actual protection.
+
+Alternative considered: *a real edit lock*. It would need the same activity signal plus expiry, could still be lost by
+a sleeping phone and so would not remove the revision check, and adds pages blocked by abandoned editors.
+
 ### Search
 
 FTS5 with the `porter unicode61 remove_diacritics 2` tokenizer gives English stemming and ignores case and accents.

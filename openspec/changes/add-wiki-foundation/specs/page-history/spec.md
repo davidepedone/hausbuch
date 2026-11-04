@@ -61,3 +61,28 @@ again.
 #### Scenario: No conflict
 - **WHEN** a user saves a page nobody else changed since they began editing
 - **THEN** the save is applied
+
+### Requirement: Warning when someone else is editing
+Opening a page's editor SHALL warn the user when another user has the same page open in an editor, naming them and
+since when, and SHALL let them go back or edit anyway. An editor SHALL count as open until it is saved or cancelled,
+or until it has given no sign of activity for 2 minutes (a closed tab, a sleeping phone).
+
+#### Scenario: Someone else is editing
+- **WHEN** Anna has had a page's editor open for 5 minutes and Marco opens the editor of the same page
+- **THEN** Marco sees that Anna has been editing it for 5 minutes, and can go back or edit anyway
+
+#### Scenario: Editing anyway
+- **WHEN** Marco chooses to edit anyway
+- **THEN** the editor opens and saving is still subject to the concurrent edit check
+
+#### Scenario: Editor saved or cancelled
+- **WHEN** Anna saves or cancels, and Marco then opens the editor
+- **THEN** Marco sees no warning
+
+#### Scenario: Editor abandoned
+- **WHEN** Anna closes her tab without saving, and Marco opens the editor 2 minutes later
+- **THEN** Marco sees no warning
+
+#### Scenario: Own editor in another tab
+- **WHEN** a user has a page's editor open in one tab and opens it again in another
+- **THEN** they see no warning about themselves
