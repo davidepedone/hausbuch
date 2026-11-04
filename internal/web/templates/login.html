@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="mx-auto max-w-sm">
+  <h1 class="mb-4 text-xl font-semibold">Sign in</h1>
+  {{if .Data.NoAccounts}}
+  <div class="mb-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+    <p>There are no accounts yet. Accounts are created from the command line of the server:</p>
+    <pre class="mt-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs">hausbuch user add USERNAME "DISPLAY NAME"</pre>
+  </div>
+  {{end}}
+  {{with .Data.Error}}
+  <p class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
+  {{end}}
+  <form method="post" action="/login" class="space-y-4">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Username</span>
+      <input name="username" value="{{.Data.Username}}" autocomplete="username" autocapitalize="none" required autofocus
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Password</span>
+      <input type="password" name="password" autocomplete="current-password" required
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <button class="w-full rounded bg-stone-800 px-3 py-2 font-medium text-white hover:bg-stone-700">Sign in</button>
+  </form>
+</div>
+{{end}}

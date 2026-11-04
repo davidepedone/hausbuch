@@ -37,6 +37,26 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | --- | --- | --- |
 | `HAUSBUCH_DB_PATH` | SQLite database file | `/data/hausbuch.db` |
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
+| `HAUSBUCH_SESSION_TIMEOUT` | how long a session lasts without being used, as a Go duration | `720h` (30 days) |
+
+### Accounts
+
+Every page needs signing in, and there is no sign-up: accounts are managed with the `user` commands of the binary,
+run inside the container while it is running. The image has no shell, so give the binary as the command:
+
+```sh
+docker exec -it hausbuch /hausbuch user add anna "Anna Rossi"   # asks for the password twice
+docker exec -it hausbuch /hausbuch user list
+docker exec -it hausbuch /hausbuch user set-password anna
+docker exec -it hausbuch /hausbuch user disable anna             # also signs them out everywhere
+docker exec -it hausbuch /hausbuch user enable anna
+docker exec -it hausbuch /hausbuch user unlock anna              # after 3 wrong passwords in a row
+```
+
+Replace `hausbuch` after `-it` with the container's name. Passwords are never given as arguments; without `-t` (no
+terminal) they are read from standard input instead, e.g. `echo "$PASSWORD" | docker exec -i …`.
+
+After 3 wrong passwords in a row a username is locked for 15 minutes, even with the right password.
 
 ### HTTPS
 

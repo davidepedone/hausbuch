@@ -12,13 +12,13 @@
 
 ## 2. Accounts and sign-in (`user-accounts`)
 
-- [ ] 2.1 Add the `app_user` migration and user store with argon2id hashing; verify tests that usernames equal ignoring case (including non-ASCII letters) are rejected and that a hash verifies only its own password
-- [ ] 2.2 Add the subcommand dispatch (`serve` as default, `healthcheck`, `user`) and the `user add` and `user list` commands, reading passwords without echo or from piped standard input; verify tests for the "Add an account", "Duplicate username", "List accounts" and both "Passwords never on the command line" scenarios
-- [ ] 2.3 Add the `session` migration and session handling (random token, stored hashed, cookie flags, expiry from `HAUSBUCH_SESSION_TIMEOUT`, enabled check on every request); verify tests for the "Long-lived sessions" scenarios with a controllable clock and that a session survives a restart of the server
-- [ ] 2.4 Build the login page, sign out, the middleware requiring a session everywhere except login, static assets and `/healthz`, and `http.CrossOriginProtection`; verify `httptest` tests for the "Login required everywhere", "Sign in with username and password", "No accounts yet" and "Sign out" scenarios and that a cross-origin POST is refused
-- [ ] 2.5 Lock a username for 15 minutes after 3 failed sign-ins in a row, counted on the user's row, and add `user unlock`; verify tests for the three "Repeated failed sign-ins lock the username" scenarios with a controllable clock, and that a lock survives a restart of the server
-- [ ] 2.6 Add `user set-password`, `user disable` (ending that user's sessions) and `user enable`, run against a database the server is using; verify tests for the "Set a password", "Disable an account" and "Enable an account" scenarios with the server running
-- [ ] 2.7 Build "change my password"; verify tests for both scenarios
+- [x] 2.1 Add the `app_user` migration and user store with argon2id hashing; verify tests that usernames equal ignoring case (including non-ASCII letters) are rejected and that a hash verifies only its own password
+- [x] 2.2 Add the subcommand dispatch (`serve` as default, `healthcheck`, `user`) and the `user add` and `user list` commands, reading passwords without echo or from piped standard input; verify tests for the "Add an account", "Duplicate username", "List accounts" and both "Passwords never on the command line" scenarios
+- [x] 2.3 Add the `session` migration and session handling (random token, stored hashed, cookie flags, expiry from `HAUSBUCH_SESSION_TIMEOUT`, enabled check on every request); verify tests for the "Long-lived sessions" scenarios with a controllable clock and that a session survives a restart of the server
+- [x] 2.4 Build the login page, sign out, the middleware requiring a session everywhere except login, static assets and `/healthz`, and `http.CrossOriginProtection`; verify `httptest` tests for the "Login required everywhere", "Sign in with username and password", "No accounts yet" and "Sign out" scenarios and that a cross-origin POST is refused
+- [x] 2.5 Lock a username for 15 minutes after 3 failed sign-ins in a row, counted on the user's row, and add `user unlock`; verify tests for the three "Repeated failed sign-ins lock the username" scenarios with a controllable clock, and that a lock survives a restart of the server
+- [x] 2.6 Add `user set-password`, `user disable` (ending that user's sessions) and `user enable`, run against a database the server is using; verify tests for the "Set a password", "Disable an account" and "Enable an account" scenarios with the server running
+- [x] 2.7 Build "change my password"; verify tests for both scenarios
 - [ ] 2.8 Check the login page (with and without accounts) and password change in a browser with Playwright at phone, tablet and desktop widths
 
 ## 3. Pages (`wiki-pages`)
