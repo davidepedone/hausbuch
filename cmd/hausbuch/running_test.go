@@ -21,11 +21,11 @@ import (
 func runningServer(t *testing.T) (*httptest.Server, *user.Store) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "hausbuch.db")
-	serverDB, err := db.Open(context.Background(), path)
+	serverDB, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cliDB, err := db.Open(context.Background(), path)
+	cliDB, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

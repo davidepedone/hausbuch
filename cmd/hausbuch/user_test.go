@@ -14,7 +14,7 @@ import (
 
 func newStore(t *testing.T) *user.Store {
 	t.Helper()
-	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"))
+	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

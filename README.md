@@ -48,7 +48,9 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
 | `HAUSBUCH_SESSION_TIMEOUT` | how long a session lasts without being used, as a Go duration | `720h` (30 days) |
 | `HAUSBUCH_DEFAULT_LANGUAGE` | language new pages start in: `en` (English) or `it` (Italian) | `en` |
-| `TZ` | time zone dates are shown in, such as `Europe/Rome` | `UTC` |
+| `HAUSBUCH_BACKUP_DIR` | directory the copies of the database are saved in (see [Backups](#backups)) | `backups` next to the database file |
+| `HAUSBUCH_BACKUP_KEEP` | how many daily copies to keep, at least 1 | `7` |
+| `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due | `UTC` |
 
 ### Accounts
 
@@ -76,13 +78,43 @@ terminates HTTPS; setting that up is up to whoever deploys it.
 
 ### Backups
 
-Don't copy the database file while hausbuch is writing to it: the copy can be inconsistent. Either stop the container
-and copy the whole `/data` directory (the database may come with `-wal` and `-shm` files that belong to it), or, with
-the container running, use SQLite's online backup from the host:
+hausbuch copies its database by itself into `HAUSBUCH_BACKUP_DIR`, `/data/backups` in the image:
+
+- `daily-YYYY-MM-DD.db`: one copy for each day it runs, made at start and then checked every hour. The newest
+  `HAUSBUCH_BACKUP_KEEP` are kept, older ones are removed.
+- `before-schema-N.db`: made before a new release changes the database's structure, if the database already holds
+  data. If this copy can't be made, hausbuch doesn't start and leaves the database as it was. These copies are never
+  removed automatically.
+
+Each copy is a complete SQLite database, consistent even when made while people are editing. A copy interrupted
+half-way is never left under one of these names.
+
+The copies are on the same volume as the database: they protect against a bad update or a mistake, not against
+losing the disk. To keep copies elsewhere too, copy the files of the backups directory to another machine or disk;
+they can be copied at any time.
+
+To restore a copy:
+
+1. Stop the container.
+2. In the data directory, replace `hausbuch.db` with the copy, and delete `hausbuch.db-wal` and `hausbuch.db-shm` if
+   they are there: they belong to the database being replaced, and would otherwise be applied to the restored one.
+3. Start the container.
+
+With a named volume, as in the example above, a throwaway container reaches its files. For example, to restore the
+copy of 3 November 2026 when the volume is called `hausbuch-data`:
 
 ```sh
-sqlite3 /path/to/data/hausbuch.db ".backup /path/to/backup/hausbuch.db"
+docker stop hausbuch
+docker run --rm -v hausbuch-data:/data busybox sh -c \
+  'cp /data/backups/daily-2026-11-03.db /data/hausbuch.db && rm -f /data/hausbuch.db-wal /data/hausbuch.db-shm && chown 65532:65532 /data/hausbuch.db'
+docker start hausbuch
 ```
+
+### Going back to a previous release
+
+A release never changes the database in a way the previous release can't work with, so going back is running the
+previous image: pin its version (`image: ghcr.io/davidepedone/hausbuch:YYYY.MM.N`), or move `:stable` back onto it
+when releasing (see [Releasing](#releasing)).
 
 ## Development
 
@@ -93,6 +125,12 @@ Tailwind CSS CLI is downloaded by `make` into `bin/`.
 make check   # lint, tests and build, as in CI
 HAUSBUCH_DB_PATH=./hausbuch.db HAUSBUCH_LISTEN=127.0.0.1:8080 ./hausbuch
 ```
+
+Migrations, in `internal/db/migrations`, are only ever added, never edited, and they only add: tables, indexes, and
+columns that are nullable or have a default. They never rename or drop a table or a column, change what a column
+means, or add a constraint existing rows or code could break. That keeps the previous release working on the database
+a newer one migrated, which is what makes going back to it possible; a change that needs more is split across two
+releases (first stop using the old shape, then remove it).
 
 `make check` also generates `internal/web/static/app.css`; run `make css` after changing classes in the templates when
 not going through `make check`.
