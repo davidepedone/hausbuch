@@ -59,7 +59,7 @@
 
 ## 7. Integration check
 
-- [ ] 7.1 Run the image from the README's example compose from scratch: two accounts added with `docker exec`, a lock lifted with `user unlock`, a page from each template, a link, a rename, an editing warning, a conflicting edit, a restore, a search, a container restart keeping the session; verify every step behaves as the specs say
+- [x] 7.1 Run the image from the README's example compose from scratch: two accounts added with `docker exec`, a lock lifted with `user unlock`, a page from each template, a link, a rename, an editing warning, a conflicting edit, a restore, a search, a container restart keeping the session; verify every step behaves as the specs say
 
 ## Workflow follow-up
 
