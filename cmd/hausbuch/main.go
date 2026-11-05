@@ -3,13 +3,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 	_ "time/tzdata" // the image has no time zone database, and TZ needs one
 
@@ -36,10 +39,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	addr := envOr("HAUSBUCH_LISTEN", ":8080")
 	dbPath := envOr("HAUSBUCH_DB_PATH", "/data/hausbuch.db")
+	backupDir := envOr("HAUSBUCH_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backups"))
 
 	switch cmd {
 	case "serve":
-		return serve(addr, dbPath)
+		return serve(addr, dbPath, backupDir)
 	case "healthcheck":
 		if err := healthcheck(addr); err != nil {
 			fmt.Fprintln(stderr, err)
@@ -47,7 +51,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 		return 0
 	case "user":
-		database, err := db.Open(context.Background(), dbPath)
+		database, err := db.Open(context.Background(), dbPath, backupDir)
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
@@ -60,7 +64,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 }
 
-func serve(addr, dbPath string) int {
+func serve(addr, dbPath, backupDir string) int {
 	timeout := user.DefaultSessionTimeout
 	if v := os.Getenv("HAUSBUCH_SESSION_TIMEOUT"); v != "" {
 		d, err := time.ParseDuration(v)
@@ -75,11 +79,21 @@ func serve(addr, dbPath string) int {
 		slog.Error("HAUSBUCH_DEFAULT_LANGUAGE must be one of the page languages", "value", language, "languages", page.Languages)
 		return 1
 	}
-	database, err := db.Open(context.Background(), dbPath)
+	keep := 7
+	if v := os.Getenv("HAUSBUCH_BACKUP_KEEP"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			slog.Error("HAUSBUCH_BACKUP_KEEP must be a whole number of at least 1", "value", v)
+			return 1
+		}
+		keep = n
+	}
+	database, err := db.Open(context.Background(), dbPath, backupDir)
 	if err != nil {
 		slog.Error("cannot open database", "path", dbPath, "err", err)
 		return 1
 	}
+	go backUpDaily(database, backupDir, keep)
 	users := user.NewStore(database)
 	users.SessionTimeout = timeout
 	pages := page.NewStore(database)
@@ -111,6 +125,17 @@ func cleanUp(users *user.Store, pages *page.Store) {
 			slog.Error("remove deleted pages", "err", err)
 		}
 		time.Sleep(24 * time.Hour)
+	}
+}
+
+// backUpDaily makes the day's copy of the database if it is missing, at start and then every hour, so that every day
+// the server runs gets one whatever time it started. A failure is retried at the next check.
+func backUpDaily(database *sql.DB, dir string, keep int) {
+	for {
+		if err := db.DailyBackup(context.Background(), database, dir, keep, time.Now()); err != nil {
+			slog.Error("daily backup", "dir", dir, "err", err)
+		}
+		time.Sleep(time.Hour)
 	}
 }
 

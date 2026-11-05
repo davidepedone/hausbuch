@@ -27,7 +27,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	database, err := db.Open(ctx, filepath.Join(t.TempDir(), "hausbuch.db"))
+	database, err := db.Open(ctx, filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

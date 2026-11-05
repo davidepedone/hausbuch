@@ -8,7 +8,7 @@ import (
 )
 
 func TestOpenConfiguresConnections(t *testing.T) {
-	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"))
+	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 
 	versions := func() []int64 {
 		t.Helper()
-		db, err := Open(context.Background(), path)
+		db, err := Open(context.Background(), path, t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +77,7 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 // A transaction that checks and then writes must not let another one check in between: transactions take the write
 // lock when they begin, so a second one waits for the first to end.
 func TestTransactionsTakeTheWriteLockWhenTheyBegin(t *testing.T) {
-	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"))
+	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

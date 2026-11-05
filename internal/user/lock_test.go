@@ -84,7 +84,7 @@ func TestUnlock(t *testing.T) {
 
 func TestLockSurvivesRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hausbuch.db")
-	first, err := db.Open(context.Background(), path)
+	first, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestLockSurvivesRestart(t *testing.T) {
 	failSignIns(t, s, 3)
 	_ = first.Close()
 
-	second, err := db.Open(context.Background(), path)
+	second, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

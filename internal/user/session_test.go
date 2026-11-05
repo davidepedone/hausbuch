@@ -113,14 +113,14 @@ func TestDeleteSession(t *testing.T) {
 
 func TestSessionSurvivesRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hausbuch.db")
-	first, err := db.Open(context.Background(), path)
+	first, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	sess := signedIn(t, NewStore(first))
 	_ = first.Close()
 
-	second, err := db.Open(context.Background(), path)
+	second, err := db.Open(context.Background(), path, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
