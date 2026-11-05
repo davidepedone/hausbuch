@@ -11,7 +11,7 @@ Work in progress: the specification lives in [`openspec/`](openspec/).
 hausbuch is a single Docker image, `ghcr.io/davidepedone/hausbuch`, for `linux/amd64` and `linux/arm64`. Everything
 it stores is one SQLite database in `/data`, so that directory must be on a volume.
 
-[`docker-compose.yml`](docker-compose.yml) runs it on port 8080 with its data in the `hausbuch-data` volume. Its
+[`docker-compose.yml`](docker-compose.yml) runs it on port 8090 with its data in the `hausbuch-data` volume. Its
 `com.centurylinklabs.watchtower.enable` label lets a [watchtower](https://github.com/nicholas-fedor/watchtower) already
 running on the host, with label-enable, install every release moved to `:stable`. The labels starting with
 `dev.dozzle.` give the container a name and an icon in [Dozzle](https://dozzle.dev/), for a host that runs it.
