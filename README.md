@@ -11,7 +11,7 @@ Work in progress: the specification lives in [`openspec/`](openspec/).
 hausbuch is a single Docker image, `ghcr.io/davidepedone/hausbuch`, for `linux/amd64` and `linux/arm64`. Everything
 it stores is one SQLite database in `/data`, so that directory must be on a volume.
 
-[`docker-compose.yml`](docker-compose.yml) runs it on port 8090 with its data in the `hausbuch-data` volume. Its
+[`docker-compose.yml`](docker-compose.yml) runs it on port 8090 with its data in `./data`, next to the file. Its
 `com.centurylinklabs.watchtower.enable` label lets a [watchtower](https://github.com/nicholas-fedor/watchtower) already
 running on the host, with label-enable, install every release moved to `:stable`. The labels starting with
 `dev.dozzle.` give the container a name and an icon in [Dozzle](https://dozzle.dev/), for a host that runs it.
@@ -25,9 +25,9 @@ Releases are versioned by date, `YYYY.MM.N` (the `N`th release of that month), a
 Each release also has `YYYY.MM.N-amd64` and `YYYY.MM.N-arm64` tags, the image of one platform: use the tags above
 instead, which pick the right one.
 
-The container runs as the unprivileged user `65532`. With a named volume, as above, Docker gives it the right owner.
-With a bind mount (`./data:/data`), the host directory must be writable by that user:
-`chown 65532:65532 ./data`.
+The container runs as the unprivileged user `65532`. With a host directory, as in `docker-compose.yml`, that
+directory must be writable by that user: `chown 65532:65532 ./data`. With a named volume instead, Docker gives it the
+right owner.
 
 The image reports its health to Docker by itself (`/hausbuch healthcheck`, calling `/healthz`).
 
@@ -91,9 +91,9 @@ To restore a copy:
    they are there: they belong to the database being replaced, and would otherwise be applied to the restored one.
 3. Start the container.
 
-With a named volume, as in `docker-compose.yml`, a throwaway container reaches its files. For example, to restore the
-copy of 3 November 2026 when the volume is called `hausbuch-data` (Compose puts the project's name in front of it:
-`docker volume ls` shows the full name):
+With a named volume, a throwaway container reaches its files. For example, to restore the copy of 3 November 2026
+when the volume is called `hausbuch-data` (Compose puts the project's name in front of it: `docker volume ls` shows
+the full name):
 
 ```sh
 docker stop hausbuch
