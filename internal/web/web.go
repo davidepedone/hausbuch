@@ -33,19 +33,22 @@ type server struct {
 	editors         *editors
 }
 
-// view is what every template gets: the signed-in user, if any, and the page's own data.
+// view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
+// field, and the page's own data.
 type view struct {
-	User *user.User
-	Data any
+	User   *user.User
+	Search string
+	Data   any
 }
 
 var funcs = template.FuncMap{
-	"date":     func(t time.Time) string { return t.Local().Format("2 Jan 2006, 15:04") },
-	"names":    joinNames,
-	"day":      func(t time.Time) string { return t.Local().Format("2 Jan 2006") },
-	"language": page.LanguageName,
-	"pageURL":  pageURL,
-	"types":    func() []page.Type { return page.Types },
+	"date":       func(t time.Time) string { return t.Local().Format("2 Jan 2006, 15:04") },
+	"names":      joinNames,
+	"day":        func(t time.Time) string { return t.Local().Format("2 Jan 2006") },
+	"language":   page.LanguageName,
+	"newPageURL": newPageURL,
+	"pageURL":    pageURL,
+	"types":      func() []page.Type { return page.Types },
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
@@ -54,7 +57,7 @@ func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) ht
 	s := &server{users: users, pages: pages, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{},
 		editors: &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare"} {
+		"revision", "compare", "search"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -73,6 +76,7 @@ func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) ht
 	signedIn.HandleFunc("POST /pages/{id}/delete", s.deletePage)
 	signedIn.HandleFunc("POST /pages/{id}/restore", s.restorePage)
 	signedIn.HandleFunc("GET /deleted", s.deletedPages)
+	signedIn.HandleFunc("GET /search", s.search)
 	signedIn.HandleFunc("POST /preview", s.preview)
 	signedIn.HandleFunc("POST /pages/skeleton", s.skeleton)
 	signedIn.HandleFunc("POST /pages/{id}/editing", s.stillEditing)
@@ -240,7 +244,11 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 // render executes a page into a buffer first, so that a template error becomes a clean 500 rather than half a page.
 func (s *server) render(w http.ResponseWriter, r *http.Request, status int, name string, data any) {
 	var buf bytes.Buffer
-	if err := s.templates[name].ExecuteTemplate(&buf, "layout", view{User: currentUser(r), Data: data}); err != nil {
+	v := view{User: currentUser(r), Data: data}
+	if r.URL.Path == "/search" {
+		v.Search = r.URL.Query().Get("q")
+	}
+	if err := s.templates[name].ExecuteTemplate(&buf, "layout", v); err != nil {
 		s.fail(w, err)
 		return
 	}

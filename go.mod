@@ -3,6 +3,7 @@ module github.com/davidepedone/hausbuch
 go 1.27.3
 
 require (
+	github.com/blevesearch/snowballstem v0.9.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/yuin/goldmark v1.8.7
 	go.abhg.dev/goldmark/wikilink v0.6.0

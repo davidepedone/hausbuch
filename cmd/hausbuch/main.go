@@ -83,6 +83,10 @@ func serve(addr, dbPath string) int {
 	users := user.NewStore(database)
 	users.SessionTimeout = timeout
 	pages := page.NewStore(database)
+	if err := pages.Reindex(context.Background()); err != nil {
+		slog.Error("cannot build the search index", "err", err)
+		return 1
+	}
 	go cleanUp(users, pages)
 
 	srv := &http.Server{

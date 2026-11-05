@@ -1,0 +1,23 @@
+{{define "content"}}
+<h1 class="mb-4 text-xl font-semibold">Search</h1>
+{{with .Data}}
+{{if .Results}}
+<ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+  {{range .Results}}
+  <li>
+    <a href="{{pageURL .ID}}" class="block px-4 py-3 hover:bg-stone-50">
+      <span class="block break-words font-medium">{{.Title}}</span>
+      <span class="block text-sm text-stone-500">{{.Type.Label}}</span>
+      {{with .Excerpt}}<span class="mt-1 block break-words text-sm text-stone-700">{{.Before}}{{with .Match}}<mark class="rounded bg-amber-100 px-0.5 text-stone-900">{{.}}</mark>{{end}}{{.After}}</span>{{end}}
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{else if .Query}}
+<p class="text-stone-500">Nothing found for “{{.Query}}”.</p>
+<p class="mt-4"><a href="{{newPageURL .Query}}" class="inline-block rounded bg-stone-800 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700">Create the page “{{.Query}}”</a></p>
+{{else}}
+<p class="text-stone-500">Type the words to search for in the field above.</p>
+{{end}}
+{{end}}
+{{end}}
