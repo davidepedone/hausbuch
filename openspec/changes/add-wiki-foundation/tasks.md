@@ -52,10 +52,10 @@
 
 ## 6. Search (`page-search`)
 
-- [ ] 6.1 Confirm a Go Snowball library with English and Italian stemmers (`blevesearch/snowballstem` first) and add the word splitting and stemming; verify unit tests that "descaling"/"descale" and "irrigazione"/"irrigare" share a stem and that "l'irrigazione" splits into two words
-- [ ] 6.2 Add the `page_fts` migration (stemmed title and body, unicode61 without diacritics) kept current on save, delete and restore in the same transaction; verify a test that a saved page is findable, a deleted one is not, a restored one is again
-- [ ] 6.3 Build search with each word stemmed both ways and quoted, title matches first then `bm25()`, excerpts built from the original body and the "nothing found" offer; verify tests for every `page-search` scenario, plus input containing FTS5 operators, quotes and HTML
-- [ ] 6.4 Put the search field in the header of every signed-in screen; verify the "Search from a page on a phone" scenario in a browser with Playwright at phone width
+- [x] 6.1 Confirm a Go Snowball library with English and Italian stemmers (`blevesearch/snowballstem` first) and add the word splitting and stemming; verify unit tests that "descaling"/"descale" and "irrigazione"/"irrigare" share a stem and that "l'irrigazione" splits into two words
+- [x] 6.2 Add the `page_fts` migration (stemmed title and body, unicode61 without diacritics) kept current on save, delete and restore in the same transaction; verify a test that a saved page is findable, a deleted one is not, a restored one is again
+- [x] 6.3 Build search with each word stemmed both ways and quoted, title matches first then `bm25()`, excerpts built from the original body and the "nothing found" offer; verify tests for every `page-search` scenario, plus input containing FTS5 operators, quotes and HTML
+- [x] 6.4 Put the search field in the header of every signed-in screen; verify the "Search from a page on a phone" scenario in a browser with Playwright at phone width
 
 ## 7. Integration check
 

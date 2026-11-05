@@ -41,7 +41,7 @@ Go's standard library covers most of what this change needs: HTTP routing with m
 (`http.CrossOriginProtection`), and embedding templates and assets into the binary (`embed`). The result is a single
 static binary in an image of a few megabytes, with low memory use and instant start.
 
-Pages are rendered on the server; HTMX handles the few dynamic bits (editor preview, search as you type). Tailwind,
+Pages are rendered on the server; HTMX handles the few dynamic bits (editor preview, skeletons, the editing warning). Tailwind,
 compiled by its standalone CLI before `go build`, keeps the responsive layout simple. Both HTMX and the compiled CSS
 are embedded, so the app needs nothing from the internet.
 
@@ -165,7 +165,9 @@ SQLite's FTS5 only stems English (the `porter` tokenizer), so stemming happens i
 Italian stemmers (`blevesearch/snowballstem`; that it includes Italian is checked before relying on it). Text is split
 into words on anything that isn't a letter or digit (so "l'irrigazione" gives "l" and "irrigazione"), lower-cased and
 stemmed in the page's language. `page_fts` stores those stems, not the original text, in `title_stem` and
-`body_stem`, with the `unicode61 remove_diacritics 2` tokenizer, which then ignores accents on both sides.
+`body_stem`, with the `unicode61 remove_diacritics 2` tokenizer, which then ignores accents on both sides. Stems can't
+be computed in a SQL migration, so the server rebuilds the whole index at start: that fills it for pages saved before
+it existed, and keeps it in step with the stemmers after an update of the library. At this size it takes moments.
 
 The searched words have no known language, so each one is stemmed both ways and becomes `("<en stem>" OR "<it
 stem>")`, quoted so FTS5 operators in the input are taken literally; the words are joined with `AND`, so all are

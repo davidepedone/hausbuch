@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/davidepedone/hausbuch/internal/markdown"
+	"github.com/davidepedone/hausbuch/internal/search"
 )
 
 // Type is the kind of content a page holds.
@@ -265,7 +266,60 @@ func (s *Store) appendRevision(ctx context.Context, tx *sql.Tx, id, userID int64
 			return err
 		}
 	}
-	return nil
+	return index(ctx, tx, id)
+}
+
+// index brings the page's entry in the full-text index up to date: its current content, or none if it is deleted.
+func index(ctx context.Context, tx *sql.Tx, id int64) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM page_fts WHERE rowid = ?", id); err != nil {
+		return err
+	}
+	var title, body, lang string
+	err := tx.QueryRowContext(ctx, `
+		SELECT p.title, r.body, p.language
+		FROM page p JOIN page_revision r ON r.page_id = p.id AND r.number = p.revision
+		WHERE p.id = ? AND p.deleted_at IS NULL`, id).Scan(&title, &body, &lang)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO page_fts (rowid, title_stem, body_stem) VALUES (?, ?, ?)",
+		id, search.Stems(title, lang), search.Stems(body, lang))
+	return err
+}
+
+// Reindex rebuilds the full-text index from scratch, so that it holds pages saved before it existed and stems from
+// the stemmers of this version.
+func (s *Store) Reindex(ctx context.Context) error {
+	return s.inTx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM page_fts"); err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(ctx, "SELECT id FROM page WHERE deleted_at IS NULL")
+		if err != nil {
+			return err
+		}
+		var ids []int64
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				_ = rows.Close()
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if err := index(ctx, tx, id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // The current content of pages, with who created and last changed them and who deleted them.
@@ -395,7 +449,7 @@ func (s *Store) Revision(ctx context.Context, id int64, n int) (Revision, error)
 
 // Delete moves the page among the deleted pages, recording who deleted it.
 func (s *Store) Delete(ctx context.Context, id, userID int64) error {
-	return s.exec1(ctx, "UPDATE page SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL",
+	return s.change1(ctx, id, "UPDATE page SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL",
 		s.Now().Unix(), userID, id)
 }
 
@@ -406,7 +460,7 @@ func (s *Store) Deleted(ctx context.Context) ([]Page, error) {
 
 // Restore brings a deleted page back, with its history, unless it has been deleted for too long.
 func (s *Store) Restore(ctx context.Context, id int64) error {
-	return s.exec1(ctx, "UPDATE page SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at > ?",
+	return s.change1(ctx, id, "UPDATE page SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at > ?",
 		id, s.expiredBefore())
 }
 
@@ -421,18 +475,20 @@ func (s *Store) expiredBefore() int64 {
 	return s.Now().Add(-DeletedLifetime).Unix()
 }
 
-// exec1 runs a statement meant to change one page, or returns ErrNotFound.
-func (s *Store) exec1(ctx context.Context, query string, args ...any) error {
-	res, err := s.DB.ExecContext(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	if n, err := res.RowsAffected(); err != nil {
-		return err
-	} else if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+// change1 runs a statement meant to change page id and updates its index entry, or returns ErrNotFound.
+func (s *Store) change1(ctx context.Context, id int64, query string, args ...any) error {
+	return s.inTx(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return ErrNotFound
+		}
+		return index(ctx, tx, id)
+	})
 }
 
 func (s *Store) inTx(ctx context.Context, f func(*sql.Tx) error) error {
@@ -445,4 +501,31 @@ func (s *Store) inTx(ctx context.Context, f func(*sql.Tx) error) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// Result is a page found by a search, with an excerpt of its body.
+type Result struct {
+	Page
+	Excerpt search.Excerpt
+}
+
+// Search returns the pages that aren't deleted and contain every searched word, in their title or body, in any form:
+// first those with the words in their title, then by relevance.
+func (s *Store) Search(ctx context.Context, text string) ([]Result, error) {
+	query := search.Query(text)
+	if query == "" {
+		return nil, nil
+	}
+	pages, err := s.queryPages(ctx, ` JOIN page_fts ON page_fts.rowid = p.id
+		WHERE page_fts MATCH ? AND p.deleted_at IS NULL
+		ORDER BY p.id IN (SELECT rowid FROM page_fts WHERE page_fts MATCH ?) DESC, bm25(page_fts)`,
+		query, "title_stem : ("+query+")")
+	if err != nil {
+		return nil, err
+	}
+	results := make([]Result, len(pages))
+	for i, p := range pages {
+		results[i] = Result{Page: p, Excerpt: search.MakeExcerpt(p.Body, p.Language, text)}
+	}
+	return results, nil
 }
