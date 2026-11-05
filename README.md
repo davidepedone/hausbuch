@@ -11,19 +11,11 @@ Work in progress: the specification lives in [`openspec/`](openspec/).
 hausbuch is a single Docker image, `ghcr.io/davidepedone/hausbuch`, for `linux/amd64` and `linux/arm64`. Everything
 it stores is one SQLite database in `/data`, so that directory must be on a volume.
 
-```yaml
-services:
-  hausbuch:
-    image: ghcr.io/davidepedone/hausbuch:stable
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - hausbuch-data:/data
-
-volumes:
-  hausbuch-data:
-```
+[`docker-compose.yml`](docker-compose.yml) runs it on port 8080 with its data in the `hausbuch-data` volume, together
+with [watchtower](https://github.com/nicholas-fedor/watchtower), which installs every release moved to `:stable` at
+4:30 each night. Its watchtower has its own scope, `hausbuch`, so it coexists with another watchtower on the same host:
+an unscoped one leaves this stack alone. The labels starting with `dev.dozzle.` give the containers a name and an icon
+in [Dozzle](https://dozzle.dev/), for a host that runs it.
 
 Releases are versioned by date, `YYYY.MM.N` (the `N`th release of that month), and published under three kinds of tag:
 
@@ -100,8 +92,9 @@ To restore a copy:
    they are there: they belong to the database being replaced, and would otherwise be applied to the restored one.
 3. Start the container.
 
-With a named volume, as in the example above, a throwaway container reaches its files. For example, to restore the
-copy of 3 November 2026 when the volume is called `hausbuch-data`:
+With a named volume, as in `docker-compose.yml`, a throwaway container reaches its files. For example, to restore the
+copy of 3 November 2026 when the volume is called `hausbuch-data` (Compose puts the project's name in front of it:
+`docker volume ls` shows the full name):
 
 ```sh
 docker stop hausbuch
