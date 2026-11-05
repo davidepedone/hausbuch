@@ -1,12 +1,11 @@
-# hausbuch with watchtower, which installs each release promoted to :stable. Adapt the ports, the volume and the time
-# zone to the installation; the app's other settings are in the README.
+# hausbuch from the :stable tag. A watchtower running on the host with label-enable installs each release promoted to
+# :stable. Adapt the ports, the volume and the time zone to the installation; the app's other settings are in the README.
 services:
   hausbuch:
     image: ghcr.io/davidepedone/hausbuch:stable
     restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: "true"
-      com.centurylinklabs.watchtower.scope: hausbuch
       dev.dozzle.name: hausbuch
       # the app's logo (internal/web/static/favicon.svg): Dozzle takes custom icons only as a data URI
       dev.dozzle.icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTYiIGZpbGw9IiNEREU4RDgiLz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9IiM0RTZCNTIiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0xMyAyOSBRMjIgMjEgMzIgMTMuNSBRNDIgMjEgNTEgMjguNSIvPgogICAgPHBhdGggZD0iTTEzLjUgMzQgUTIyIDM4IDMxIDQxIFEzMS41IDQ2IDMxLjUgNTIgUTIzIDQ4IDEzLjUgNDYuNSBaIi8+CiAgICA8cGF0aCBkPSJNNTAuNSAzNCBRNDIgMzggMzMgNDEgUTMyLjUgNDYgMzIuNSA1MiBRNDEgNDggNTAuNSA0Ni41IFoiLz4KICA8L2c+Cjwvc3ZnPgo="
@@ -21,28 +20,6 @@ services:
       - hausbuch-data:/data
     ports:
       - "8080:8080"
-  watchtower:
-    image: nickfedor/watchtower:1.23.2
-    restart: unless-stopped
-    labels:
-      # its own scope: another watchtower on the same host, without one, leaves this stack alone and vice versa
-      com.centurylinklabs.watchtower.scope: hausbuch
-      dev.dozzle.name: Watchtower (hausbuch)
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    environment:
-      TZ: Europe/Rome
-      # the whole /var/run, not docker.sock alone: some hosts (QNAP's Container Station) refuse to bind-mount the socket
-      DOCKER_HOST: unix:///host-run/docker.sock
-      WATCHTOWER_SCOPE: hausbuch
-      WATCHTOWER_SCHEDULE: "0 30 4 * * *"
-      WATCHTOWER_LABEL_ENABLE: "true"
-      WATCHTOWER_CLEANUP: "true"
-    volumes:
-      - /var/run:/host-run
 
 volumes:
   hausbuch-data:
