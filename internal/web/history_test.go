@@ -133,7 +133,7 @@ func TestSomeoneElseIsEditing(t *testing.T) {
 	}
 	html := marco.view(path + "/edit")
 	mustContain(t, html, "Anna has been editing this page for 5 minutes.",
-		`href="`+path+`" class="rounded bg-stone-800 px-4 py-2 font-medium text-white hover:bg-stone-700">Go back</a>`, `href="`+path+`/edit?anyway=1"`)
+		`href="`+path+`" class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Go back</a>`, `href="`+path+`/edit?anyway=1"`)
 	if strings.Contains(html, "<textarea") {
 		t.Error("editor opened without a choice")
 	}

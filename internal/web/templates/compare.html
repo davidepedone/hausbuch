@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Data}}
-<p class="mb-1 text-sm"><a href="{{pageURL .Page.ID}}/history" class="text-stone-500 underline hover:text-stone-900">History of {{.Page.Title}}</a></p>
-<h1 class="mb-2 text-xl font-semibold">Revision {{.Revision.Number}} compared with the current version</h1>
+<p class="mb-1 text-sm"><a href="{{pageURL .Page.ID}}/history" class="text-sage-700 underline hover:text-sage-800">History of {{.Page.Title}}</a></p>
+<h1 class="mb-2 text-xl font-display font-semibold">Revision {{.Revision.Number}} compared with the current version</h1>
 <p class="mb-4 text-sm text-stone-500">Lines marked + are only in the current version, lines marked − only in revision {{.Revision.Number}}.</p>
 {{if ne .Revision.Title .Page.Title}}<p class="mb-2 text-sm">Title: <del>{{.Revision.Title}}</del> → {{.Page.Title}}</p>{{end}}
 {{if ne .Revision.Type .Page.Type}}<p class="mb-2 text-sm">Type: <del>{{.Revision.Type.Label}}</del> → {{.Page.Type.Label}}</p>{{end}}

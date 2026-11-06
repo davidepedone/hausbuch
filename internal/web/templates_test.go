@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -134,5 +135,18 @@ func TestChangeType(t *testing.T) {
 	p, _ := a.pages.Get(context.Background(), idOf(t, path))
 	if p.Body != body {
 		t.Errorf("body = %q", p.Body)
+	}
+}
+
+func TestEveryTypeHasAnIcon(t *testing.T) {
+	tmpl := template.Must(template.New("").Funcs(funcs).ParseFS(files, "templates/parts.html"))
+	for _, typ := range page.Types {
+		var b strings.Builder
+		if err := tmpl.ExecuteTemplate(&b, "typeIcon", typ); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(b.String(), "<path") {
+			t.Errorf("%s has no icon: %s", typ, b.String())
+		}
 	}
 }

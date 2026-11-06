@@ -1,22 +1,31 @@
 {{define "content"}}
 <div class="mb-4 flex items-center justify-between gap-4">
-  <h1 class="text-xl font-semibold">Pages</h1>
-  <a href="/pages/new" class="whitespace-nowrap rounded bg-stone-800 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700">New page</a>
+  <h1 class="font-display text-xl font-semibold">Pages</h1>
+  <a href="/pages/new" class="whitespace-nowrap rounded bg-sage-700 px-3 py-2 text-sm font-medium text-white hover:bg-sage-800">New page</a>
 </div>
-<nav class="mb-4 flex flex-wrap gap-2 text-sm" aria-label="Filter by type">
+<nav class="mb-6 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Filter by type">
   {{$current := .Data.Type}}
-  <a href="/" class="rounded-full border px-3 py-1 {{if not $current}}border-stone-800 bg-stone-800 text-white{{else}}border-stone-300 hover:bg-stone-100{{end}}"{{if not $current}} aria-current="page"{{end}}>All</a>
   {{range types}}
-  <a href="/?type={{.}}" class="rounded-full border px-3 py-1 {{if eq . $current}}border-stone-800 bg-stone-800 text-white{{else}}border-stone-300 hover:bg-stone-100{{end}}"{{if eq . $current}} aria-current="page"{{end}}>{{.Label}}</a>
+  <a href="/?type={{.}}" class="flex flex-col items-center gap-1 rounded-lg border px-3 py-3 font-medium {{if eq . $current}}border-sage-700 bg-sage-700 text-white{{else}}border-sage-200 bg-sage-50 text-stone-800 hover:bg-sage-100{{end}}"{{if eq . $current}} aria-current="page"{{end}}>
+    <span class="size-8 {{if ne . $current}}text-sage-700{{end}}">{{template "typeIcon" .}}</span>
+    {{.Label}}
+  </a>
   {{end}}
 </nav>
+<div class="mb-2 flex items-baseline justify-between gap-4">
+  <h2 class="font-display text-lg font-semibold">{{with .Data.Type}}{{.Label}}{{else}}Recently changed{{end}}</h2>
+  {{if .Data.Type}}<a href="/" class="text-sm text-sage-700 underline hover:text-sage-800">Show all</a>{{end}}
+</div>
 {{with .Data.Pages}}
 <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
   {{range .}}
   <li>
-    <a href="{{pageURL .ID}}" class="block px-4 py-3 hover:bg-stone-50">
-      <span class="block break-words font-medium">{{.Title}}</span>
-      <span class="block text-sm text-stone-500">{{.Type.Label}} · changed {{date .ChangedAt}} by {{.ChangedBy}}</span>
+    <a href="{{pageURL .ID}}" class="flex items-center gap-3 px-4 py-3 hover:bg-stone-50">
+      <span class="size-9 shrink-0 rounded-md bg-sage-50 p-2 text-sage-700">{{template "typeIcon" .Type}}</span>
+      <span class="min-w-0">
+        <span class="block break-words font-medium">{{.Title}}</span>
+        <span class="block text-sm text-stone-500">{{.Type.Label}} · changed {{date .ChangedAt}} by {{.ChangedBy}}</span>
+      </span>
     </a>
   </li>
   {{end}}
@@ -24,5 +33,5 @@
 {{else}}
 <p class="text-stone-500">{{if .Data.Type}}No pages of this type yet.{{else}}No pages yet.{{end}}</p>
 {{end}}
-<p class="mt-6 text-sm"><a href="/deleted" class="text-stone-500 underline hover:text-stone-900">Deleted pages</a></p>
+<p class="mt-6 text-sm"><a href="/deleted" class="text-sage-700 underline hover:text-sage-800">Deleted pages</a></p>
 {{end}}

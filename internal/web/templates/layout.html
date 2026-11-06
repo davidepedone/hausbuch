@@ -11,9 +11,19 @@
   <script src="/static/htmx.min.js" defer></script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-900">
-  <header class="border-b border-stone-200 bg-white">
+  <header class="border-b border-sage-200 bg-sage-100">
     <div class="mx-auto flex max-w-3xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-      <a href="/" class="shrink-0 text-lg font-semibold">hausbuch</a>
+      <a href="/" class="flex shrink-0 items-center gap-2 font-display text-lg font-semibold">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" class="size-7" aria-hidden="true">
+          <rect width="64" height="64" rx="16" fill="#DDE8D8"/>
+          <g fill="none" stroke="#4E6B52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 29 Q22 21 32 13.5 Q42 21 51 28.5"/>
+            <path d="M13.5 34 Q22 38 31 41 Q31.5 46 31.5 52 Q23 48 13.5 46.5 Z"/>
+            <path d="M50.5 34 Q42 38 33 41 Q32.5 46 32.5 52 Q41 48 50.5 46.5 Z"/>
+          </g>
+        </svg>
+        hausbuch
+      </a>
       {{with .User}}
       <form method="get" action="/search" role="search" class="order-last w-full sm:order-none sm:w-auto sm:flex-1">
         <input type="search" name="q" value="{{$.Search}}" placeholder="Search pages" aria-label="Search pages"
@@ -22,7 +32,7 @@
       <nav class="ml-auto flex min-w-0 items-center gap-3 text-sm">
         <a href="/account/password" class="truncate text-stone-600 hover:text-stone-900">{{.DisplayName}}</a>
         <form method="post" action="/logout">
-          <button class="whitespace-nowrap rounded px-2 py-1 text-stone-600 hover:bg-stone-100 hover:text-stone-900">Sign out</button>
+          <button class="whitespace-nowrap rounded px-2 py-1 text-stone-600 hover:bg-sage-200 hover:text-stone-900">Sign out</button>
         </form>
       </nav>
       {{end}}

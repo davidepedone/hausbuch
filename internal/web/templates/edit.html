@@ -1,6 +1,6 @@
 {{define "content"}}
 {{with .Data}}
-<h1 class="mb-4 text-xl font-semibold">{{if .ID}}Edit page{{else}}New page{{end}}</h1>
+<h1 class="mb-4 text-xl font-display font-semibold">{{if .ID}}Edit page{{else}}New page{{end}}</h1>
 {{with .Error}}
 <p class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
 {{end}}
@@ -62,7 +62,7 @@
   {{template "body" .}}
   <p class="text-sm text-stone-500">Markdown: <code># Heading</code>, <code>**bold**</code>, <code>- list</code>, <code>- [ ] checklist</code>, <code>[[Page title]]</code> to link a page.</p>
   <div class="flex flex-wrap gap-2">
-    <button class="rounded bg-stone-800 px-4 py-2 font-medium text-white hover:bg-stone-700">Save</button>
+    <button class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Save</button>
     <button type="button" hx-post="/preview" hx-include="[name=body]" hx-target="#preview"
             class="rounded border border-stone-300 px-4 py-2 hover:bg-stone-100">Preview</button>
     {{if .ID}}
@@ -72,7 +72,7 @@
     {{end}}
   </div>
 </form>
-<div id="preview" class="prose prose-stone mt-6 max-w-none break-words empty:hidden"></div>
+<div id="preview" class="prose prose-sage mt-6 max-w-none break-words empty:hidden"></div>
 {{end}}
 {{end}}
 
