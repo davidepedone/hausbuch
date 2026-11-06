@@ -1,9 +1,5 @@
 # Proposal
 
-> **Status: draft, to be discussed.** This records the ideas; the scope is not agreed yet. Design and tasks are
-> written once it is, and the work starts after `add-wiki-foundation`, before the first release meant for everyday
-> use.
-
 ## Why
 
 The interface works and is responsive, but it looks generic: a neutral palette and default typography, unrelated to the
@@ -12,26 +8,27 @@ recipes above all, pleasant to read.
 
 ## What Changes
 
-Ideas to discuss:
-
-- Colours taken from the icon (sage green on light green) for buttons, links and accents, instead of the current grey
-  and black.
-- The icon in the header, next to the name.
-- A typeface with more character for headings, and more care in how a page reads (spacing, headings, lists), recipes
-  above all.
-- A richer home page: an icon per page type, or pages grouped by type instead of one flat list.
-- A dark mode, following the device's setting.
+- **Accent colour from the icon**: the icon's sage green replaces the current dark grey on buttons, active filter
+  chips, links and the headings inside a page. The warm grey neutrals (backgrounds, borders, secondary text) stay.
+- **Header**: a light green band, the colour of the icon's background, with the icon next to the name.
+- **Typeface for headings**: Fraunces for the name in the header, page titles and the headings inside a page. Body
+  text keeps the system font. The font file is embedded in the image, so nothing is loaded from the internet.
+- **Reading a page**: the page body's typography is tuned for every page type alike — headings in Fraunces and sage,
+  list markers and step numbers in sage, more generous line height and spacing, slightly larger text on phones.
+- **An icon per page type**: a small icon, drawn in the same style as the application's icon, next to each page in the
+  home page list and on the type filter chips.
 
 ### Out of scope
 
+- A dark mode: it would need every colour turned into a semantic token with light and dark values; if wanted, it is a
+  change of its own.
+- Grouping the home page by type: the type filter chips already do that job.
+- Styling specific to recipes (ingredients as a checklist, a box for servings and time): it would depend on recognising
+  sections by their headings, which people can rename or remove, and a checklist is behaviour.
+- Tinting the neutral greys green.
 - Any change of behaviour: screens, fields and flows stay as the specs describe them.
 - A second interface language.
 - Choosing a theme per user.
-
-## Open Questions
-
-- References: apps or sites whose look should guide this.
-- Which of the ideas above to keep, and whether dark mode is worth its cost (every screen checked twice).
 
 ## Capabilities
 
@@ -45,6 +42,6 @@ None.
 
 ## Impact
 
-- Templates and `internal/web/styles.css`; possibly a font embedded in the image, so nothing is loaded from the
-  internet.
+- `internal/web/styles.css` (accent colour, font, typography settings), the templates, and new static files: the font
+  and the page type icons.
 - Browser checks with screenshots at phone, tablet and desktop widths for every screen.
