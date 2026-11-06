@@ -4,6 +4,7 @@
 # Go
 /hausbuch
 /hausbuch.db*
+/backups/
 *.test
 *.out
 go.work
