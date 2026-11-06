@@ -2,7 +2,61 @@
 @plugin "@tailwindcss/typography";
 @source "./templates";
 
+/* Built around the icon's colours: 100 is its background, 700 its strokes. */
+@theme {
+  --color-sage-50: #f1f5ef;
+  --color-sage-100: #dde8d8;
+  --color-sage-200: #c5d6bf;
+  --color-sage-700: #4e6b52;
+  --color-sage-800: #3f5843;
+  --font-display: "Fraunces", Georgia, serif;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/fraunces.woff2") format("woff2");
+}
+
 /* [[Title]] links to a page that doesn't exist yet. */
 .prose a.missing {
   @apply text-red-700 decoration-dashed;
+}
+
+/* Page bodies: prose-stone's greys, with sage headings, links and list markers. Outside any layer, so it wins over
+   the typography plugin's own sizes and margins. */
+.prose-sage {
+  --tw-prose-body: var(--color-stone-700);
+  --tw-prose-headings: var(--color-sage-700);
+  --tw-prose-lead: var(--color-stone-600);
+  --tw-prose-links: var(--color-sage-700);
+  --tw-prose-bold: var(--color-stone-900);
+  --tw-prose-counters: var(--color-sage-700);
+  --tw-prose-bullets: var(--color-sage-700);
+  --tw-prose-hr: var(--color-stone-200);
+  --tw-prose-quotes: var(--color-stone-900);
+  --tw-prose-quote-borders: var(--color-sage-200);
+  --tw-prose-captions: var(--color-stone-500);
+  --tw-prose-kbd: var(--color-stone-900);
+  --tw-prose-kbd-shadows: rgb(28 25 23 / 10%);
+  --tw-prose-code: var(--color-stone-900);
+  --tw-prose-pre-code: var(--color-stone-200);
+  --tw-prose-pre-bg: var(--color-stone-800);
+  --tw-prose-th-borders: var(--color-stone-300);
+  --tw-prose-td-borders: var(--color-stone-200);
+
+  & :where(h1, h2, h3, h4) {
+    font-family: var(--font-display);
+  }
+
+  & :where(h2):not(:first-child) {
+    margin-top: 2.25em;
+  }
+
+  @media (width < 40rem) {
+    font-size: 1.0625rem;
+    line-height: 1.8;
+  }
 }

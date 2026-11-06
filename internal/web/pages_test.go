@@ -62,7 +62,7 @@ func (b *browser) view(path string) string {
 // renderedBody returns the HTML of the page body inside a page view.
 func renderedBody(t *testing.T, html string) string {
 	t.Helper()
-	_, rest, ok := strings.Cut(html, `<div id="body" class="prose prose-stone max-w-none break-words">`)
+	_, rest, ok := strings.Cut(html, `<div id="body" class="prose prose-sage max-w-none break-words">`)
 	body, _, ok2 := strings.Cut(rest, "</div>\n</article>")
 	if !ok || !ok2 {
 		t.Fatalf("no page body in:\n%s", html)
@@ -166,7 +166,7 @@ func TestBacklinks(t *testing.T) {
 	pasta := b.create("Pasta", "With [[Tomato sauce]].")
 	menu := b.create("Weekly menu", "Monday: [[Tomato sauce]].")
 	mustContain(t, b.view(sauce), "Pages linking here",
-		`<a href="`+pasta+`" class="underline">Pasta</a>`, `<a href="`+menu+`" class="underline">Weekly menu</a>`)
+		`<a href="`+pasta+`" class="text-sage-700 underline hover:text-sage-800">Pasta</a>`, `<a href="`+menu+`" class="text-sage-700 underline hover:text-sage-800">Weekly menu</a>`)
 	if strings.Contains(b.view(pasta), "Pages linking here") {
 		t.Error("a page nobody links shows backlinks")
 	}
@@ -210,7 +210,7 @@ func TestRenamedPageKeepsLinks(t *testing.T) {
 		t.Fatalf("rename: %s", resp.Status)
 	}
 	mustContain(t, renderedBody(t, b.view(descale)), `<a href="`+machine+`">Coffee maker</a>`)
-	mustContain(t, b.view(machine), "Coffee machine", `<a href="`+descale+`" class="underline">Descaling</a>`)
+	mustContain(t, b.view(machine), "Coffee machine", `<a href="`+descale+`" class="text-sage-700 underline hover:text-sage-800">Descaling</a>`)
 }
 
 func TestRenameToUsedTitle(t *testing.T) {
@@ -273,7 +273,8 @@ func TestHomeFiltersByType(t *testing.T) {
 	if !strings.Contains(html, ">Pizza<") || strings.Contains(html, ">Irrigation<") {
 		t.Errorf("recipes:\n%s", html)
 	}
-	mustContain(t, html, `<a href="/?type=recipe" class="rounded-full border px-3 py-1 border-stone-800 bg-stone-800 text-white" aria-current="page">Recipe</a>`)
+	mustContain(t, html, `<a href="/?type=recipe" class="flex flex-col items-center gap-1 rounded-lg border px-3 py-3 font-medium border-sage-700 bg-sage-700 text-white" aria-current="page">`,
+		`<a href="/" class="text-sm text-sage-700 underline hover:text-sage-800">Show all</a>`)
 	if html := b.view("/?type=nonsense"); !strings.Contains(html, ">Pizza<") || !strings.Contains(html, ">Irrigation<") {
 		t.Errorf("unknown type doesn't list all:\n%s", html)
 	}
