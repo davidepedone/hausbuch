@@ -2,7 +2,8 @@
 
 A private household wiki for the people living in a home: recipes, how-to procedures, seasonal chores, where things
 are kept. Pages start from templates, can carry photos and files, and can have reminders that show up in the app when
-they are due.
+they are due. Two sections, Medicines and Pantry, keep track of what the household has at home, and the home page
+points out what has expired or is about to.
 
 Work in progress: the specification lives in [`openspec/`](openspec/).
 
@@ -41,7 +42,9 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_DEFAULT_LANGUAGE` | language new pages start in: `en` (English) or `it` (Italian) | `en` |
 | `HAUSBUCH_BACKUP_DIR` | directory the copies of the database are saved in (see [Backups](#backups)) | `backups` next to the database file |
 | `HAUSBUCH_BACKUP_KEEP` | how many daily copies to keep, at least 1 | `7` |
-| `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due | `UTC` |
+| `HAUSBUCH_MEDICINES_LEAD_DAYS` | how many days before their expiry date medicines are pointed out as expiring, at least 0 | `30` |
+| `HAUSBUCH_PANTRY_LEAD_DAYS` | the same for the pantry | `7` |
+| `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due and when an item has expired | `UTC` |
 
 ### Accounts
 

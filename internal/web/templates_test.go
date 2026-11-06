@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 )
 
 // textarea is how the editor shows body in its text area.
@@ -147,6 +148,19 @@ func TestEveryTypeHasAnIcon(t *testing.T) {
 		}
 		if !strings.Contains(b.String(), "<path") {
 			t.Errorf("%s has no icon: %s", typ, b.String())
+		}
+	}
+}
+
+func TestEverySectionHasAnIcon(t *testing.T) {
+	tmpl := template.Must(template.New("").Funcs(funcs).ParseFS(files, "templates/parts.html"))
+	for _, sec := range stock.Sections {
+		var b strings.Builder
+		if err := tmpl.ExecuteTemplate(&b, "sectionIcon", sec); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(b.String(), "<path") {
+			t.Errorf("%s has no icon: %s", sec, b.String())
 		}
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
 )
@@ -96,7 +97,7 @@ func residentWorks(t *testing.T, path, password string, wantPages ...string) {
 	if err := pages.Reindex(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, "en"))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, stock.NewStore(database), "en"))
 	defer srv.Close()
 	c := newClient(t)
 	if status := signIn(t, c, srv, "anna", password); status != http.StatusSeeOther {

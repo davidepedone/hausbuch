@@ -15,6 +15,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 )
 
@@ -23,6 +24,7 @@ type testApp struct {
 	srv   *httptest.Server
 	users *user.Store
 	pages *page.Store
+	stock *stock.Store
 }
 
 func newApp(t *testing.T) *testApp {
@@ -36,13 +38,13 @@ func newAppIn(t *testing.T, language string) *testApp {
 	if err != nil {
 		t.Fatal(err)
 	}
-	users, pages := user.NewStore(database), page.NewStore(database)
-	srv := httptest.NewServer(NewHandler(users, pages, language))
+	users, pages, items := user.NewStore(database), page.NewStore(database), stock.NewStore(database)
+	srv := httptest.NewServer(NewHandler(users, pages, items, language))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = database.Close()
 	})
-	return &testApp{t: t, srv: srv, users: users, pages: pages}
+	return &testApp{t: t, srv: srv, users: users, pages: pages, stock: items}
 }
 
 func (a *testApp) addUser(username, displayName, password string) user.User {
