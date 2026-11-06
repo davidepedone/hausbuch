@@ -1,0 +1,50 @@
+{{define "content"}}
+{{with .Data}}
+<p class="mb-1 text-sm"><a href="/{{.Item.Section}}#item-{{.Item.ID}}" class="text-sage-700 underline hover:text-sage-800">{{.Item.Section.Label}}</a></p>
+<h1 class="mb-1 break-words font-display text-xl font-semibold">{{.Item.Name}}</h1>
+<p class="mb-4 text-sm text-stone-500">Added by {{.Item.CreatedBy}} · changed {{date .Item.ChangedAt}} by {{.Item.ChangedBy}}</p>
+<form method="post" action="{{itemURL .Item}}" class="space-y-4">
+  {{with .Form.Error}}
+  <p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
+  {{end}}
+  <label class="block">
+    <span class="mb-1 block text-sm font-medium">Name</span>
+    <input name="name" value="{{.Form.Name}}" required class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
+  <div class="grid grid-cols-2 gap-4">
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Quantity</span>
+      <input name="quantity" value="{{.Form.Quantity}}" type="number" min="1" step="1" required inputmode="numeric"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Unit <span class="font-normal text-stone-500">(optional)</span></span>
+      <input name="unit" value="{{.Form.Unit}}" class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
+      <input name="location" value="{{.Form.Location}}" list="locations" autocomplete="off"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Days it lasts once opened <span class="font-normal text-stone-500">(optional)</span></span>
+      <input name="opened_days" value="{{.Form.OpenedDays}}" type="number" min="1" step="1" inputmode="numeric"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+  </div>
+  <datalist id="locations">{{range .Locations}}<option value="{{.}}">{{end}}</datalist>
+  {{template "expiryField" .Form}}
+  <label class="block">
+    <span class="mb-1 block text-sm font-medium">Opened on <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="opened_on" value="{{.Form.OpenedOn}}" type="date"
+           class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base sm:w-auto">
+  </label>
+  <div class="flex flex-wrap gap-2">
+    <button class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Save</button>
+    <a href="/{{.Item.Section}}#item-{{.Item.ID}}" class="rounded px-4 py-2 text-stone-600 hover:bg-stone-100">Cancel</a>
+  </div>
+</form>
+{{end}}
+{{end}}

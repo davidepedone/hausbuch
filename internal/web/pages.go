@@ -11,6 +11,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/markdown"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 )
 
 // renderBody turns a body into HTML, with [[Title]] links leading to the page or, when there is none, to creating it.
@@ -29,8 +30,9 @@ func pageURL(id int64) string { return "/pages/" + strconv.FormatInt(id, 10) }
 func newPageURL(title string) string { return "/pages/new?title=" + url.QueryEscape(title) }
 
 type homeData struct {
-	Pages []page.Page
-	Type  page.Type // the type filtered by, or empty
+	Warnings []stock.Item // expired and expiring items
+	Pages    []page.Page
+	Type     page.Type // the type filtered by, or empty
 }
 
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +45,12 @@ func (s *server) home(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "home", homeData{Pages: pages, Type: t})
+	warnings, err := s.stock.Warnings(r.Context())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.render(w, r, http.StatusOK, "home", homeData{Warnings: warnings, Pages: pages, Type: t})
 }
 
 type viewData struct {

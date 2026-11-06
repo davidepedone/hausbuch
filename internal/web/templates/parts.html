@@ -16,3 +16,19 @@
 {{- else if eq . "howto"}}<path d="M14.5 3.5a5 5 0 0 0-4.6 6.9L3.8 16.5a2.1 2.1 0 0 0 3 3l6.1-6.1a5 5 0 0 0 6.9-4.6l-3 3-2.6-1.1-1.1-2.6z"/>
 {{- else if eq . "where"}}<path d="M3 13h18v7H3z"/><path d="M9 16h6"/><path d="M12 11s-3.5-3-3.5-5.5a3.5 3.5 0 0 1 7 0C15.5 8 12 11 12 11z"/><circle cx="12" cy="5.5" r="1"/>
 {{- end}}</svg>{{end}}
+
+{{/* expiryField is an item's printed expiry date, in its add and edit forms. */}}
+{{define "expiryField"}}
+<label class="block">
+  <span class="mb-1 block text-sm font-medium">Expiry date <span class="font-normal text-stone-500">(optional)</span></span>
+  <input name="expires_on" value="{{.ExpiresOn}}" type="date"
+         class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base sm:w-auto">
+  <span class="mt-1 block text-sm text-stone-500">With only a month and a year printed, pick the month's last day.</span>
+</label>
+{{end}}
+
+{{/* sectionIcon draws a section's icon like typeIcon does: a capsule for medicines, a jar for the pantry. */}}
+{{define "sectionIcon"}}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-full" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{{- if eq . "medicines"}}<path d="M10.5 20.5a5 5 0 0 1-7-7l10-10a5 5 0 0 1 7 7z"/><path d="M8.5 8.5l7 7"/>
+{{- else if eq . "pantry"}}<path d="M8 3h8v3H8z"/><path d="M7 6h10a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1z"/><path d="M9 12h6"/>
+{{- end}}</svg>{{end}}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 )
 
@@ -28,6 +29,7 @@ const sessionCookie = "hausbuch_session"
 type server struct {
 	users           *user.Store
 	pages           *page.Store
+	stock           *stock.Store
 	defaultLanguage string
 	templates       map[string]*template.Template
 	editors         *editors
@@ -49,15 +51,24 @@ var funcs = template.FuncMap{
 	"newPageURL": newPageURL,
 	"pageURL":    pageURL,
 	"types":      func() []page.Type { return page.Types },
+	"sections":   func() []stock.Section { return stock.Sections },
+	// calendar shows a date that has no time of day, such as an expiry date, which must not move with the time zone.
+	"calendar":   func(t time.Time) string { return t.Format("2 Jan 2006") },
+	"inputDate":  inputDate,
+	"itemForm":   formOf,
+	"itemURL":    itemURL,
+	"expiryNote": expiryNote,
+	"expired":    func(s stock.State) bool { return s == stock.Expired },
+	"expiring":   func(s stock.State) bool { return s == stock.Expiring },
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
 // check requires a session. New pages start in defaultLanguage.
-func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) http.Handler {
-	s := &server{users: users, pages: pages, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{},
+func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, defaultLanguage string) http.Handler {
+	s := &server{users: users, pages: pages, stock: items, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{},
 		editors: &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search"} {
+		"revision", "compare", "search", "section", "item"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -85,6 +96,7 @@ func NewHandler(users *user.Store, pages *page.Store, defaultLanguage string) ht
 	signedIn.HandleFunc("GET /pages/{id}/revisions/{n}", s.revision)
 	signedIn.HandleFunc("GET /pages/{id}/revisions/{n}/compare", s.compare)
 	signedIn.HandleFunc("POST /pages/{id}/revisions/{n}/restore", s.restoreRevision)
+	s.routeStock(signedIn)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "password", passwordData{})

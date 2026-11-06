@@ -12,6 +12,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
 )
@@ -29,7 +30,7 @@ func runningServer(t *testing.T) (*httptest.Server, *user.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), "en"))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), stock.NewStore(serverDB), "en"))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = serverDB.Close()

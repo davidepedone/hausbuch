@@ -60,3 +60,15 @@
     line-height: 1.8;
   }
 }
+
+/* The offer to undo a removal goes away by itself; ending hidden also makes it unclickable. */
+.fade-away {
+  animation: fade-away 0.5s ease-in 10s forwards;
+}
+
+@keyframes fade-away {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

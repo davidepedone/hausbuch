@@ -18,6 +18,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
 )
@@ -88,6 +89,11 @@ func serve(addr, dbPath, backupDir string) int {
 		}
 		keep = n
 	}
+	lead, err := leadTimes()
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
 	database, err := db.Open(context.Background(), dbPath, backupDir)
 	if err != nil {
 		slog.Error("cannot open database", "path", dbPath, "err", err)
@@ -102,10 +108,12 @@ func serve(addr, dbPath, backupDir string) int {
 		return 1
 	}
 	go cleanUp(users, pages)
+	items := stock.NewStore(database)
+	items.Lead = lead
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users, pages, language),
+		Handler:           web.NewHandler(users, pages, items, language),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)
@@ -169,6 +177,24 @@ func healthURL(addr string) (string, error) {
 		host = "127.0.0.1"
 	}
 	return "http://" + net.JoinHostPort(host, port) + "/healthz", nil
+}
+
+// leadTimes returns how many days before their expiry date each section's items count as expiring.
+func leadTimes() (map[stock.Section]int, error) {
+	lead := stock.DefaultLead()
+	for section, key := range map[stock.Section]string{
+		stock.Medicines: "HAUSBUCH_MEDICINES_LEAD_DAYS",
+		stock.Pantry:    "HAUSBUCH_PANTRY_LEAD_DAYS",
+	} {
+		if v := os.Getenv(key); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 {
+				return nil, fmt.Errorf("%s must be a whole number of at least 0, not %q", key, v)
+			}
+			lead[section] = n
+		}
+	}
+	return lead, nil
 }
 
 func envOr(key, fallback string) string {
