@@ -15,14 +15,17 @@ recipes above all, pleasant to read.
   text keeps the system font. The font file is embedded in the image, so nothing is loaded from the internet.
 - **Reading a page**: the page body's typography is tuned for every page type alike — headings in Fraunces and sage,
   list markers and step numbers in sage, more generous line height and spacing, slightly larger text on phones.
-- **An icon per page type**: a small icon, drawn in the same style as the application's icon, next to each page in the
-  home page list and on the type filter chips.
+- **An icon per page type**, drawn in the same style as the application's icon.
+- **A richer home page**: the type filter chips become a tile per type, with its icon, filtering the list as the chips
+  do; the list below shows each page's type icon and is headed "Recently changed", or the type's name when filtered,
+  with a "Show all" link to clear the filter.
 
 ### Out of scope
 
 - A dark mode: it would need every colour turned into a semantic token with light and dark values; if wanted, it is a
   change of its own.
-- Grouping the home page by type: the type filter chips already do that job.
+- Grouping the home page by type: the type tiles already do that job.
+- The number of pages of each type on its tile: it is new data, not a new look.
 - Styling specific to recipes (ingredients as a checklist, a box for servings and time): it would depend on recognising
   sections by their headings, which people can rename or remove, and a checklist is behaviour.
 - Tinting the neutral greys green.
