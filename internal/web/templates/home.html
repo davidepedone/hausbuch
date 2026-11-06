@@ -7,7 +7,7 @@
     <li>
       <a href="/{{.Section}}#item-{{.ID}}" class="flex flex-wrap items-baseline justify-between gap-x-3 rounded px-2 py-1.5 hover:bg-amber-100">
         <span class="min-w-0 break-words font-medium">{{.Name}}
-          <span class="font-normal text-stone-500">· {{.Quantity}}{{with .Unit}} {{.}}{{end}} · {{.Section.Label}}</span></span>
+          <span class="font-normal text-stone-500">· {{.Quantity}} · {{.Section.Label}}</span></span>
         <span class="text-sm {{if expired .State}}font-semibold text-red-800{{else}}text-amber-900{{end}}">{{expiryNote .}} · {{calendar .Expiry}}</span>
       </a>
     </li>

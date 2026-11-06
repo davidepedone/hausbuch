@@ -307,7 +307,7 @@ func TestExpiringBoxOnTheHomePage(t *testing.T) {
 	a.stockClock()
 	b := a.signedInAs("anna", "Anna")
 	b.addItem(stock.Medicines, url.Values{"name": {"Eye drops"}, "expires_on": {"2026-11-16"}})
-	b.addItem(stock.Pantry, url.Values{"name": {"Yogurt"}, "quantity": {"2"}, "expires_on": {"2026-11-05"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Yogurt"}, "quantity": {"2"}, "unit": {"pots"}, "expires_on": {"2026-11-05"}})
 	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}, "expires_on": {"2027-11-05"}})
 	html := b.view("/")
 	_, box, ok := strings.Cut(html, `aria-labelledby="expiring"`)
@@ -320,6 +320,10 @@ func TestExpiringBoxOnTheHomePage(t *testing.T) {
 		`href="/medicines#item-`+strconv.FormatInt(drops.ID, 10)+`"`, "· 1 · Medicines", "expires in 10 days · 16 Nov 2026")
 	if strings.Index(box, "Yogurt") > strings.Index(box, "Eye drops") {
 		t.Error("expired item not first")
+	}
+	// "1 bottles": the unit is free text and doesn't agree with the number, so the box leaves it out.
+	if strings.Contains(box, "pots") {
+		t.Error("unit shown in the box")
 	}
 	if strings.Contains(box, "Rice") {
 		t.Error("item expiring next year listed")
