@@ -356,8 +356,7 @@ func TestLoginPageAssetsNeedNoSession(t *testing.T) {
 	}
 }
 
-// Launched from the home screen, the app runs without the browser's bars and the status bar takes the theme colour,
-// which must match the header's background or a stripe of another colour shows above it.
+// Browsers that colour their own bars take the theme colour, which must match the header's background.
 func TestHomeScreenAppTakesTheHeaderColour(t *testing.T) {
 	b := newApp(t).browser()
 	if page := b.get("/login").body; !strings.Contains(page, `<meta name="theme-color" content="#dde8d8">`) {
@@ -368,5 +367,14 @@ func TestHomeScreenAppTakesTheHeaderColour(t *testing.T) {
 		if !strings.Contains(manifest, want) {
 			t.Errorf("manifest lacks %s", want)
 		}
+	}
+}
+
+// iOS 26 blurs the top of a page scrolling under its status bar, header included, unless an opaque element is stuck
+// to the top: the header must stay there.
+func TestHeaderStaysAtTheTop(t *testing.T) {
+	page := newApp(t).browser().get("/login").body
+	if !regexp.MustCompile(`<header class="[^"]*\bsticky top-0\b[^"]*\bbg-sage-100\b`).MatchString(page) {
+		t.Error("the header is not stuck to the top with an opaque background")
 	}
 }
