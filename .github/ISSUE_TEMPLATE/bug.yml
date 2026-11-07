@@ -1,0 +1,19 @@
+name: Bug
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "This repository is public: describe the problem without any of the home's own data."
+  - type: textarea
+    attributes:
+      label: What happens
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What should happen
+  - type: input
+    attributes:
+      label: Where
+      description: Device, browser or page, if it matters

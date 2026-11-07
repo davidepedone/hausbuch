@@ -1,0 +1,12 @@
+name: Idea
+description: Something hausbuch could do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "This repository is public: describe the idea without any of the home's own data."
+  - type: textarea
+    attributes:
+      label: The idea
+    validations:
+      required: true
