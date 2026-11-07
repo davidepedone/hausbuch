@@ -355,3 +355,18 @@ func TestLoginPageAssetsNeedNoSession(t *testing.T) {
 		}
 	}
 }
+
+// Launched from the home screen, the app runs without the browser's bars and the status bar takes the theme colour,
+// which must match the header's background or a stripe of another colour shows above it.
+func TestHomeScreenAppTakesTheHeaderColour(t *testing.T) {
+	b := newApp(t).browser()
+	if page := b.get("/login").body; !strings.Contains(page, `<meta name="theme-color" content="#dde8d8">`) {
+		t.Error("the pages declare no theme colour matching the header")
+	}
+	manifest := b.get("/static/manifest.json").body
+	for _, want := range []string{`"display": "standalone"`, `"theme_color": "#dde8d8"`} {
+		if !strings.Contains(manifest, want) {
+			t.Errorf("manifest lacks %s", want)
+		}
+	}
+}
