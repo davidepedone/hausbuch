@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,15 +35,42 @@ func (s Section) Label() string {
 var (
 	ErrNotFound   = errors.New("no such item")
 	ErrEmptyName  = errors.New("an item needs a name")
-	ErrQuantity   = errors.New("the quantity must be a whole number of at least 1")
+	ErrQuantity   = errors.New("the quantity must be above 0, with at most one decimal")
 	ErrOpenedDays = errors.New("the days an item lasts once opened must be a whole number of at least 1")
 )
+
+// Quantity is an amount in tenths, so that it can have one decimal: 15 is 1.5.
+type Quantity int
+
+// One is a quantity of one.
+const One Quantity = 10
+
+// ParseQuantity reads a quantity above 0 with at most one decimal, after either a dot or a comma.
+func ParseQuantity(s string) (Quantity, error) {
+	whole, tenth, _ := strings.Cut(strings.Replace(strings.TrimSpace(s), ",", ".", 1), ".")
+	if len(tenth) > 1 {
+		return 0, ErrQuantity
+	}
+	n, err := strconv.Atoi(whole + tenth + strings.Repeat("0", 1-len(tenth)))
+	if err != nil || n <= 0 {
+		return 0, ErrQuantity
+	}
+	return Quantity(n), nil
+}
+
+// String writes the quantity with a dot before its decimal, and without one when it is whole.
+func (q Quantity) String() string {
+	if q%One == 0 {
+		return strconv.Itoa(int(q / One))
+	}
+	return strconv.Itoa(int(q/One)) + "." + strconv.Itoa(int(q%One))
+}
 
 // Values is what a user enters for a row. Dates are calendar dates at midnight UTC, zero when not given; OpenedDays is
 // 0 when not given.
 type Values struct {
 	Name       string
-	Quantity   int
+	Quantity   Quantity
 	Unit       string
 	Location   string
 	ExpiresOn  time.Time
@@ -127,7 +155,7 @@ func check(v *Values) error {
 	switch {
 	case v.Name == "":
 		return ErrEmptyName
-	case v.Quantity < 1:
+	case v.Quantity <= 0:
 		return ErrQuantity
 	case v.OpenedDays < 0:
 		return ErrOpenedDays
@@ -155,7 +183,7 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	err := s.inTx(ctx, func(tx *sql.Tx) error {
 		if v.OpenedOn.IsZero() {
 			err := tx.QueryRowContext(ctx, `
-				UPDATE stock_item SET quantity = quantity + ?, changed_by = ?, changed_at = ?
+				UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
 				WHERE id = (SELECT id FROM stock_item
 					WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
 				RETURNING id`,
@@ -168,7 +196,7 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 			}
 		}
 		res, err := tx.ExecContext(ctx, `
-			INSERT INTO stock_item (section, name, name_key, quantity, unit, location, expires_on, opened_on,
+			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, location, expires_on, opened_on,
 				opened_days, created_by, created_at, changed_by, changed_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			section, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
@@ -191,7 +219,7 @@ func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v
 	}
 	return s.inTx(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE stock_item SET name = ?, name_key = ?, quantity = ?, unit = ?, location = ?, expires_on = ?,
+			UPDATE stock_item SET name = ?, name_key = ?, quantity_tenths = ?, unit = ?, location = ?, expires_on = ?,
 				opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
 			WHERE id = ? AND section = ?`,
 			v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
@@ -218,22 +246,23 @@ func remember(ctx context.Context, tx *sql.Tx, section Section, v Values) error 
 
 // Increase adds one to a row's quantity.
 func (s *Store) Increase(ctx context.Context, section Section, id, userID int64) error {
-	res, err := s.DB.ExecContext(ctx,
-		"UPDATE stock_item SET quantity = quantity + 1, changed_by = ?, changed_at = ? WHERE id = ? AND section = ?",
-		userID, s.Now().Unix(), id, section)
+	res, err := s.DB.ExecContext(ctx, `
+		UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
+		WHERE id = ? AND section = ?`, One, userID, s.Now().Unix(), id, section)
 	if err != nil {
 		return err
 	}
 	return oneRow(res)
 }
 
-// Decrease takes one from a row's quantity. A row with quantity 1 is removed, and returned so that it can be restored.
+// Decrease takes one from a row's quantity. A row with a quantity of 1 or less is removed, and returned so that it
+// can be restored.
 // Both statements are relative to the stored quantity, so decreases made at the same time all count.
 func (s *Store) Decrease(ctx context.Context, section Section, id, userID int64) (removed *Item, err error) {
 	err = s.inTx(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE stock_item SET quantity = quantity - 1, changed_by = ?, changed_at = ?
-			WHERE id = ? AND section = ? AND quantity > 1`, userID, s.Now().Unix(), id, section)
+			UPDATE stock_item SET quantity_tenths = quantity_tenths - ?, changed_by = ?, changed_at = ?
+			WHERE id = ? AND section = ? AND quantity_tenths > ?`, One, userID, s.Now().Unix(), id, section, One)
 		if err != nil {
 			return err
 		}
@@ -270,12 +299,12 @@ func (s *Store) remove(ctx context.Context, tx *sql.Tx, section Section, id int6
 	return it, err
 }
 
-// Open marks a row as opened today. Of a row with more than one unit, one is split off into a row of its own, opened.
+// Open marks a row as opened today. Of a row with a quantity above 1, one is split off into a row of its own, opened.
 func (s *Store) Open(ctx context.Context, section Section, id, userID int64) error {
 	today, now := date(s.today()), s.Now().Unix()
 	return s.inTx(ctx, func(tx *sql.Tx) error {
-		var quantity int
-		err := tx.QueryRowContext(ctx, "SELECT quantity FROM stock_item WHERE id = ? AND section = ?", id, section).
+		var quantity Quantity
+		err := tx.QueryRowContext(ctx, "SELECT quantity_tenths FROM stock_item WHERE id = ? AND section = ?", id, section).
 			Scan(&quantity)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
@@ -283,28 +312,28 @@ func (s *Store) Open(ctx context.Context, section Section, id, userID int64) err
 		if err != nil {
 			return err
 		}
-		if quantity == 1 {
+		if quantity <= One {
 			_, err = tx.ExecContext(ctx,
 				"UPDATE stock_item SET opened_on = ?, changed_by = ?, changed_at = ? WHERE id = ?",
 				today, userID, now, id)
 			return err
 		}
 		if _, err := tx.ExecContext(ctx,
-			"UPDATE stock_item SET quantity = quantity - 1, changed_by = ?, changed_at = ? WHERE id = ?",
-			userID, now, id); err != nil {
+			"UPDATE stock_item SET quantity_tenths = quantity_tenths - ?, changed_by = ?, changed_at = ? WHERE id = ?",
+			One, userID, now, id); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO stock_item (section, name, name_key, quantity, unit, location, expires_on, opened_on,
+			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, location, expires_on, opened_on,
 				opened_days, created_by, created_at, changed_by, changed_at)
-			SELECT section, name, name_key, 1, unit, location, expires_on, ?, opened_days, ?, ?, ?, ?
-			FROM stock_item WHERE id = ?`, today, userID, now, userID, now, id)
+			SELECT section, name, name_key, ?, unit, location, expires_on, ?, opened_days, ?, ?, ?, ?
+			FROM stock_item WHERE id = ?`, One, today, userID, now, userID, now, id)
 		return err
 	})
 }
 
 const selectItems = `
-	SELECT i.id, i.section, i.name, i.quantity, i.unit, i.location, i.expires_on, i.opened_on, i.opened_days,
+	SELECT i.id, i.section, i.name, i.quantity_tenths, i.unit, i.location, i.expires_on, i.opened_on, i.opened_days,
 		i.created_by, cu.display_name, i.created_at, chu.display_name, i.changed_at
 	FROM stock_item i JOIN app_user cu ON cu.id = i.created_by JOIN app_user chu ON chu.id = i.changed_by`
 

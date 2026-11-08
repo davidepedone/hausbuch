@@ -39,7 +39,7 @@ type itemForm struct {
 }
 
 func formOf(v stock.Values) itemForm {
-	f := itemForm{Name: v.Name, Quantity: strconv.Itoa(v.Quantity), Unit: v.Unit, Location: v.Location,
+	f := itemForm{Name: v.Name, Quantity: v.Quantity.String(), Unit: v.Unit, Location: v.Location,
 		ExpiresOn: inputDate(v.ExpiresOn), OpenedOn: inputDate(v.OpenedOn)}
 	if v.OpenedDays > 0 {
 		f.OpenedDays = strconv.Itoa(v.OpenedDays)
@@ -59,8 +59,8 @@ var errDate = errors.New("bad date")
 func (f itemForm) values() (stock.Values, error) {
 	v := stock.Values{Name: f.Name, Unit: f.Unit, Location: f.Location}
 	var err error
-	if v.Quantity, err = strconv.Atoi(strings.TrimSpace(f.Quantity)); err != nil {
-		return v, stock.ErrQuantity
+	if v.Quantity, err = stock.ParseQuantity(f.Quantity); err != nil {
+		return v, err
 	}
 	if days := strings.TrimSpace(f.OpenedDays); days != "" {
 		if v.OpenedDays, err = strconv.Atoi(days); err != nil {
@@ -86,7 +86,7 @@ func refusal(err error) string {
 	case errors.Is(err, stock.ErrEmptyName):
 		return "Give the item a name."
 	case errors.Is(err, stock.ErrQuantity):
-		return "The quantity must be a whole number of at least 1."
+		return "The quantity must be above 0, with at most one decimal."
 	case errors.Is(err, stock.ErrOpenedDays):
 		return "The days it lasts once opened must be a whole number of at least 1, or empty."
 	case errors.Is(err, errDate):
