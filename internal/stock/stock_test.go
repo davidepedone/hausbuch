@@ -84,10 +84,10 @@ func names(items []Item) []string {
 
 func TestItemsListedByName(t *testing.T) {
 	f := newFixture(t)
-	f.add(Pantry, Values{Name: "Salt", Quantity: 1})
-	f.add(Pantry, Values{Name: "Rice", Quantity: 1, ExpiresOn: day(2027, 1, 1)})
-	late := f.add(Pantry, Values{Name: "Passata", Quantity: 1, ExpiresOn: day(2027, 9, 30)})
-	early := f.add(Pantry, Values{Name: "passata", Quantity: 1, ExpiresOn: day(2027, 3, 31)})
+	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Rice", Quantity: 1 * One, ExpiresOn: day(2027, 1, 1)})
+	late := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30)})
+	early := f.add(Pantry, Values{Name: "passata", Quantity: 1 * One, ExpiresOn: day(2027, 3, 31)})
 	items := f.list(Pantry)
 	if got := names(items); !slices.Equal(got, []string{"passata", "Passata", "Rice", "Salt"}) {
 		t.Fatalf("order: %v", got)
@@ -99,8 +99,8 @@ func TestItemsListedByName(t *testing.T) {
 
 func TestRowsWithoutExpiryLast(t *testing.T) {
 	f := newFixture(t)
-	none := f.add(Pantry, Values{Name: "Flour", Quantity: 1})
-	dated := f.add(Pantry, Values{Name: "Flour", Quantity: 1, ExpiresOn: day(2027, 1, 1)})
+	none := f.add(Pantry, Values{Name: "Flour", Quantity: 1 * One})
+	dated := f.add(Pantry, Values{Name: "Flour", Quantity: 1 * One, ExpiresOn: day(2027, 1, 1)})
 	if items := f.list(Pantry); items[0].ID != dated || items[1].ID != none {
 		t.Errorf("order: %v", items)
 	}
@@ -108,7 +108,7 @@ func TestRowsWithoutExpiryLast(t *testing.T) {
 
 func TestSectionsAreSeparate(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1})
+	id := f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One})
 	if items := f.list(Pantry); len(items) != 0 {
 		t.Errorf("pantry: %v", items)
 	}
@@ -122,10 +122,10 @@ func TestSectionsAreSeparate(t *testing.T) {
 
 func TestNewItem(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: " Passata ", Quantity: 3, Unit: "bottles", Location: "Pantry, top shelf",
+	id := f.add(Pantry, Values{Name: " Passata ", Quantity: 3 * One, Unit: "bottles", Location: "Pantry, top shelf",
 		ExpiresOn: day(2027, 9, 30)})
 	it := f.get(Pantry, id)
-	want := Values{Name: "Passata", Quantity: 3, Unit: "bottles", Location: "Pantry, top shelf",
+	want := Values{Name: "Passata", Quantity: 3 * One, Unit: "bottles", Location: "Pantry, top shelf",
 		ExpiresOn: day(2027, 9, 30)}
 	if it.Values != want || it.CreatedBy != "anna" || it.ChangedBy != "anna" || !it.CreatedAt.Equal(f.now) {
 		t.Errorf("got %+v", it)
@@ -134,7 +134,7 @@ func TestNewItem(t *testing.T) {
 
 func TestItemWithoutExpiryDate(t *testing.T) {
 	f := newFixture(t)
-	if it := f.get(Pantry, f.add(Pantry, Values{Name: "Salt", Quantity: 1})); !it.ExpiresOn.IsZero() || it.State != Fine {
+	if it := f.get(Pantry, f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})); !it.ExpiresOn.IsZero() || it.State != Fine {
 		t.Errorf("got %+v", it)
 	}
 }
@@ -145,9 +145,9 @@ func TestMissingNameOrQuantity(t *testing.T) {
 		v   Values
 		err error
 	}{
-		{Values{Name: "  ", Quantity: 1}, ErrEmptyName},
-		{Values{Name: "Rice", Quantity: 0}, ErrQuantity},
-		{Values{Name: "Rice", Quantity: 1, OpenedDays: -1}, ErrOpenedDays},
+		{Values{Name: "  ", Quantity: 1 * One}, ErrEmptyName},
+		{Values{Name: "Rice", Quantity: 0 * One}, ErrQuantity},
+		{Values{Name: "Rice", Quantity: 1 * One, OpenedDays: -1}, ErrOpenedDays},
 	} {
 		if _, err := f.stock.Add(ctx, Pantry, f.anna.ID, c.v); !errors.Is(err, c.err) {
 			t.Errorf("%+v: %v, want %v", c.v, err, c.err)
@@ -160,8 +160,8 @@ func TestMissingNameOrQuantity(t *testing.T) {
 
 func TestSameProductDifferentExpiry(t *testing.T) {
 	f := newFixture(t)
-	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1, ExpiresOn: day(2027, 3, 31)})
-	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1, ExpiresOn: day(2026, 11, 30)})
+	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One, ExpiresOn: day(2027, 3, 31)})
+	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One, ExpiresOn: day(2026, 11, 30)})
 	if items := f.list(Medicines); len(items) != 2 {
 		t.Errorf("rows: %v", items)
 	}
@@ -169,13 +169,13 @@ func TestSameProductDifferentExpiry(t *testing.T) {
 
 func TestSameProductSameExpiry(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 2, ExpiresOn: day(2027, 9, 30)})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 2 * One, ExpiresOn: day(2027, 9, 30)})
 	f.now = f.now.Add(time.Hour)
-	if _, err := f.stock.Add(ctx, Pantry, f.marco.ID, Values{Name: "passata", Quantity: 1, ExpiresOn: day(2027, 9, 30)}); err != nil {
+	if _, err := f.stock.Add(ctx, Pantry, f.marco.ID, Values{Name: "passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30)}); err != nil {
 		t.Fatal(err)
 	}
 	items := f.list(Pantry)
-	if len(items) != 1 || items[0].ID != id || items[0].Quantity != 3 || items[0].Name != "Passata" ||
+	if len(items) != 1 || items[0].ID != id || items[0].Quantity != 3*One || items[0].Name != "Passata" ||
 		items[0].ChangedBy != "marco" {
 		t.Errorf("got %+v", items)
 	}
@@ -183,66 +183,66 @@ func TestSameProductSameExpiry(t *testing.T) {
 
 func TestSameProductWithoutExpiryMerges(t *testing.T) {
 	f := newFixture(t)
-	f.add(Pantry, Values{Name: "Salt", Quantity: 1})
-	f.add(Pantry, Values{Name: "Salt", Quantity: 1})
-	if items := f.list(Pantry); len(items) != 1 || items[0].Quantity != 2 {
+	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
+	if items := f.list(Pantry); len(items) != 1 || items[0].Quantity != 2*One {
 		t.Errorf("got %+v", items)
 	}
 }
 
 func TestOpenedRowStaysApart(t *testing.T) {
 	f := newFixture(t)
-	opened := f.add(Pantry, Values{Name: "Passata", Quantity: 1, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
+	opened := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
 	if err := f.stock.Open(ctx, Pantry, opened, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
-	f.add(Pantry, Values{Name: "Passata", Quantity: 1, ExpiresOn: day(2027, 9, 30)})
+	f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30)})
 	items := f.list(Pantry)
-	if len(items) != 2 || items[0].Quantity != 1 || items[1].Quantity != 1 {
+	if len(items) != 2 || items[0].Quantity != 1*One || items[1].Quantity != 1*One {
 		t.Fatalf("got %+v", items)
 	}
-	if f.get(Pantry, opened).Quantity != 1 {
+	if f.get(Pantry, opened).Quantity != 1*One {
 		t.Error("added to the opened row")
 	}
 }
 
 func TestChangeTheLocation(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3, Location: "Pantry"})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One, Location: "Pantry"})
 	f.now = f.now.Add(time.Hour)
-	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "Passata", Quantity: 3, Location: "Cellar"}); err != nil {
+	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "Passata", Quantity: 3 * One, Location: "Cellar"}); err != nil {
 		t.Fatal(err)
 	}
 	it := f.get(Pantry, id)
 	if it.Location != "Cellar" || it.ChangedBy != "marco" || !it.ChangedAt.Equal(f.now) || it.CreatedBy != "anna" {
 		t.Errorf("got %+v", it)
 	}
-	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "", Quantity: 3}); !errors.Is(err, ErrEmptyName) {
+	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "", Quantity: 3 * One}); !errors.Is(err, ErrEmptyName) {
 		t.Errorf("empty name: %v", err)
 	}
 }
 
 func TestUseOne(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One})
 	removed, err := f.stock.Decrease(ctx, Pantry, id, f.anna.ID)
 	if err != nil || removed != nil {
 		t.Fatal(removed, err)
 	}
-	if q := f.get(Pantry, id).Quantity; q != 2 {
-		t.Errorf("quantity %d", q)
+	if q := f.get(Pantry, id).Quantity; q != 2*One {
+		t.Errorf("quantity %v", q)
 	}
 	if err := f.stock.Increase(ctx, Pantry, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
-	if q := f.get(Pantry, id).Quantity; q != 3 {
-		t.Errorf("after increase: %d", q)
+	if q := f.get(Pantry, id).Quantity; q != 3*One {
+		t.Errorf("after increase: %v", q)
 	}
 }
 
 func TestUseTheLastOne(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1, Location: "Pantry"})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Pantry"})
 	removed, err := f.stock.Decrease(ctx, Pantry, id, f.anna.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +257,7 @@ func TestUseTheLastOne(t *testing.T) {
 
 func TestTwoUsersAtOnce(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One})
 	var wg sync.WaitGroup
 	for _, u := range []int64{f.anna.ID, f.marco.ID} {
 		wg.Add(1)
@@ -269,16 +269,16 @@ func TestTwoUsersAtOnce(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	if q := f.get(Pantry, id).Quantity; q != 1 {
-		t.Errorf("quantity %d", q)
+	if q := f.get(Pantry, id).Quantity; q != 1*One {
+		t.Errorf("quantity %v", q)
 	}
 }
 
 func TestThrowSomethingAway(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Yogurt", Quantity: 2, ExpiresOn: day(2026, 11, 1)})
+	id := f.add(Pantry, Values{Name: "Yogurt", Quantity: 2 * One, ExpiresOn: day(2026, 11, 1)})
 	it, err := f.stock.Remove(ctx, Pantry, id)
-	if err != nil || it.Name != "Yogurt" || it.Quantity != 2 {
+	if err != nil || it.Name != "Yogurt" || it.Quantity != 2*One {
 		t.Fatal(it, err)
 	}
 	if items := f.list(Pantry); len(items) != 0 {
@@ -291,7 +291,7 @@ func TestThrowSomethingAway(t *testing.T) {
 
 func TestUndo(t *testing.T) {
 	f := newFixture(t)
-	v := Values{Name: "Passata", Quantity: 2, Unit: "bottles", Location: "Pantry", ExpiresOn: day(2027, 9, 30),
+	v := Values{Name: "Passata", Quantity: 2 * One, Unit: "bottles", Location: "Pantry", ExpiresOn: day(2027, 9, 30),
 		OpenedOn: day(2026, 11, 5), OpenedDays: 4}
 	id := f.add(Pantry, v)
 	it, err := f.stock.Remove(ctx, Pantry, id)
@@ -310,11 +310,11 @@ func TestUndo(t *testing.T) {
 
 func TestOpenASingleItem(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Medicines, Values{Name: "Eye drops", Quantity: 1, OpenedDays: 28})
+	id := f.add(Medicines, Values{Name: "Eye drops", Quantity: 1 * One, OpenedDays: 28})
 	if err := f.stock.Open(ctx, Medicines, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
-	if it := f.get(Medicines, id); !it.OpenedOn.Equal(day(2026, 11, 6)) || it.Quantity != 1 {
+	if it := f.get(Medicines, id); !it.OpenedOn.Equal(day(2026, 11, 6)) || it.Quantity != 1*One {
 		t.Errorf("got %+v", it)
 	}
 	if items := f.list(Medicines); len(items) != 1 {
@@ -324,7 +324,7 @@ func TestOpenASingleItem(t *testing.T) {
 
 func TestOpenOneOfSeveral(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
 	if err := f.stock.Open(ctx, Pantry, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -334,10 +334,10 @@ func TestOpenOneOfSeveral(t *testing.T) {
 	}
 	// The opened bottle expires first, so it comes first.
 	opened, rest := items[0], items[1]
-	if rest.ID != id || rest.Quantity != 2 || !rest.OpenedOn.IsZero() {
+	if rest.ID != id || rest.Quantity != 2*One || !rest.OpenedOn.IsZero() {
 		t.Errorf("rest: %+v", rest)
 	}
-	if opened.Quantity != 1 || !opened.OpenedOn.Equal(day(2026, 11, 6)) || !opened.ExpiresOn.Equal(day(2027, 9, 30)) ||
+	if opened.Quantity != 1*One || !opened.OpenedOn.Equal(day(2026, 11, 6)) || !opened.ExpiresOn.Equal(day(2027, 9, 30)) ||
 		opened.OpenedDays != 4 {
 		t.Errorf("opened: %+v", opened)
 	}
@@ -378,7 +378,7 @@ func TestStates(t *testing.T) {
 		{"default medicines lead time", Medicines, Values{ExpiresOn: day(2026, 11, 26)}, Expiring},
 		{"default pantry lead time", Pantry, Values{ExpiresOn: day(2026, 11, 26)}, Fine},
 	} {
-		c.v.Name, c.v.Quantity = c.name, 1
+		c.v.Name, c.v.Quantity = c.name, One
 		if got := f.get(c.section, f.add(c.section, c.v)).State; got != c.want {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
@@ -388,7 +388,7 @@ func TestStates(t *testing.T) {
 func TestConfiguredLeadTime(t *testing.T) {
 	f := newFixture(t)
 	f.stock.Lead[Pantry] = 3
-	if it := f.get(Pantry, f.add(Pantry, Values{Name: "Milk", Quantity: 1, ExpiresOn: day(2026, 11, 11)})); it.State != Fine {
+	if it := f.get(Pantry, f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, ExpiresOn: day(2026, 11, 11)})); it.State != Fine {
 		t.Errorf("state %v", it.State)
 	}
 }
@@ -401,7 +401,7 @@ func TestDaysFollowTheTimeZone(t *testing.T) {
 	}
 	defer func(l *time.Location) { time.Local = l }(time.Local)
 	time.Local = rome
-	id := f.add(Pantry, Values{Name: "Milk", Quantity: 1, ExpiresOn: day(2026, 11, 6)})
+	id := f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, ExpiresOn: day(2026, 11, 6)})
 	// 23:30 UTC on the 6th is already the 7th in Rome.
 	f.now = time.Date(2026, 11, 6, 23, 30, 0, 0, time.UTC)
 	if it := f.get(Pantry, id); it.State != Expired {
@@ -415,11 +415,11 @@ func TestDaysFollowTheTimeZone(t *testing.T) {
 
 func TestWarnings(t *testing.T) {
 	f := newFixture(t)
-	f.add(Medicines, Values{Name: "Eye drops", Quantity: 1, ExpiresOn: day(2026, 11, 16)})
-	f.add(Pantry, Values{Name: "Yogurt", Quantity: 1, ExpiresOn: day(2026, 11, 5)})
-	f.add(Pantry, Values{Name: "Milk", Quantity: 1, ExpiresOn: day(2026, 11, 8)})
-	f.add(Pantry, Values{Name: "Rice", Quantity: 1, ExpiresOn: day(2027, 11, 5)})
-	f.add(Pantry, Values{Name: "Salt", Quantity: 1})
+	f.add(Medicines, Values{Name: "Eye drops", Quantity: 1 * One, ExpiresOn: day(2026, 11, 16)})
+	f.add(Pantry, Values{Name: "Yogurt", Quantity: 1 * One, ExpiresOn: day(2026, 11, 5)})
+	f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, ExpiresOn: day(2026, 11, 8)})
+	f.add(Pantry, Values{Name: "Rice", Quantity: 1 * One, ExpiresOn: day(2027, 11, 5)})
+	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
 	items, err := f.stock.Warnings(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -431,7 +431,7 @@ func TestWarnings(t *testing.T) {
 
 func TestBuySomethingAgain(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1, Location: "Pantry, top shelf", OpenedDays: 4})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Pantry, top shelf", OpenedDays: 4})
 	if _, err := f.stock.Remove(ctx, Pantry, id); err != nil {
 		t.Fatal(err)
 	}
@@ -449,8 +449,8 @@ func TestBuySomethingAgain(t *testing.T) {
 
 func TestProductKeepsTheLastValues(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1, Location: "Pantry"})
-	if err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Passata", Quantity: 1, Location: "Cellar", OpenedDays: 4}); err != nil {
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Pantry"})
+	if err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Passata", Quantity: 1 * One, Location: "Cellar", OpenedDays: 4}); err != nil {
 		t.Fatal(err)
 	}
 	if p, _, _ := f.stock.Product(ctx, Pantry, "Passata"); p.Location != "Cellar" || p.OpenedDays != 4 {
@@ -460,7 +460,7 @@ func TestProductKeepsTheLastValues(t *testing.T) {
 
 func TestSuggestionsStayInTheirSection(t *testing.T) {
 	f := newFixture(t)
-	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1, Location: "Bathroom"})
+	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One, Location: "Bathroom"})
 	if _, found, _ := f.stock.Product(ctx, Pantry, "Paracetamol"); found {
 		t.Error("found in the pantry")
 	}
@@ -469,5 +469,90 @@ func TestSuggestionsStayInTheirSection(t *testing.T) {
 	}
 	if got, _ := f.stock.Locations(ctx, Pantry); len(got) != 0 {
 		t.Errorf("locations %v", got)
+	}
+}
+
+func TestParseQuantity(t *testing.T) {
+	for text, want := range map[string]Quantity{"1,5": 15, "1.5": 15, "2": 20, "2.0": 20, " 3 ": 30, "0.5": 5, "12,3": 123} {
+		if got, err := ParseQuantity(text); err != nil || got != want {
+			t.Errorf("%q: %d, %v, want %d", text, got, err, want)
+		}
+	}
+	for _, text := range []string{"", "0", "0.0", "-1", "1.25", "1,5,3", "abc", "1.x", "1.-"} {
+		if got, err := ParseQuantity(text); !errors.Is(err, ErrQuantity) {
+			t.Errorf("%q: %d, %v, want refused", text, got, err)
+		}
+	}
+}
+
+func TestQuantityString(t *testing.T) {
+	for q, want := range map[Quantity]string{20: "2", 15: "1.5", 5: "0.5", 10: "1", 123: "12.3"} {
+		if got := q.String(); got != want {
+			t.Errorf("%d: %q, want %q", int(q), got, want)
+		}
+	}
+}
+
+func TestQuantityWithADecimal(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Flour", Quantity: 15, Unit: "kg"})
+	f.add(Pantry, Values{Name: "Flour", Quantity: 5, Unit: "kg"})
+	if q := f.get(Pantry, id).Quantity; q != 2*One {
+		t.Errorf("merged quantity %v", q)
+	}
+}
+
+func TestUseOneOfADecimalQuantity(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Flour", Quantity: 25})
+	if removed, err := f.stock.Decrease(ctx, Pantry, id, f.anna.ID); err != nil || removed != nil {
+		t.Fatal(removed, err)
+	}
+	if q := f.get(Pantry, id).Quantity; q != 15 {
+		t.Errorf("quantity %v", q)
+	}
+}
+
+func TestUseTheLastPart(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Flour", Quantity: 5})
+	removed, err := f.stock.Decrease(ctx, Pantry, id, f.anna.ID)
+	if err != nil || removed == nil || removed.Quantity != 5 {
+		t.Fatal(removed, err)
+	}
+	if items := f.list(Pantry); len(items) != 0 {
+		t.Errorf("still there: %v", items)
+	}
+}
+
+func TestOpenOneOfADecimalQuantity(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Milk", Quantity: 25})
+	if err := f.stock.Open(ctx, Pantry, id, f.anna.ID); err != nil {
+		t.Fatal(err)
+	}
+	items := f.list(Pantry)
+	if len(items) != 2 {
+		t.Fatalf("rows: %+v", items)
+	}
+	for _, it := range items {
+		if it.ID == id && (it.Quantity != 15 || !it.OpenedOn.IsZero()) ||
+			it.ID != id && (it.Quantity != One || !it.OpenedOn.Equal(day(2026, 11, 6))) {
+			t.Errorf("row %+v", it)
+		}
+	}
+}
+
+func TestOpenAPart(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Flour", Quantity: 5})
+	if err := f.stock.Open(ctx, Pantry, id, f.anna.ID); err != nil {
+		t.Fatal(err)
+	}
+	if it := f.get(Pantry, id); it.Quantity != 5 || !it.OpenedOn.Equal(day(2026, 11, 6)) {
+		t.Errorf("got %+v", it)
+	}
+	if items := f.list(Pantry); len(items) != 1 {
+		t.Errorf("rows: %v", items)
 	}
 }

@@ -93,6 +93,16 @@ func TestAddAnItem(t *testing.T) {
 	}
 }
 
+func TestAddADecimalQuantity(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}, "quantity": {"1,5"}, "unit": {"kg"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}, "quantity": {"2.0"}})
+	mustContain(t, b.view("/pantry"), ">1.5<", ">2<")
+	it := a.item(stock.Pantry, "Flour")
+	mustContain(t, b.view(itemPath(it)), `name="quantity" value="1.5"`)
+}
+
 func TestAddAnItemWithoutExpiryDate(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
@@ -112,9 +122,10 @@ func TestAddRefused(t *testing.T) {
 		msg  string
 	}{
 		{url.Values{"name": {" "}, "quantity": {"2"}, "location": {"Cellar"}}, "Give the item a name."},
-		{url.Values{"name": {"Rice"}, "quantity": {"0"}, "location": {"Cellar"}}, "The quantity must be a whole number"},
-		{url.Values{"name": {"Rice"}, "quantity": {"two"}, "location": {"Cellar"}}, "The quantity must be a whole number"},
-		{url.Values{"name": {"Rice"}, "quantity": {"1.5"}, "location": {"Cellar"}}, "The quantity must be a whole number"},
+		{url.Values{"name": {"Rice"}, "quantity": {"0"}, "location": {"Cellar"}}, "The quantity must be above 0"},
+		{url.Values{"name": {"Rice"}, "quantity": {"-1"}, "location": {"Cellar"}}, "The quantity must be above 0"},
+		{url.Values{"name": {"Rice"}, "quantity": {"two"}, "location": {"Cellar"}}, "The quantity must be above 0"},
+		{url.Values{"name": {"Rice"}, "quantity": {"1.25"}, "location": {"Cellar"}}, "The quantity must be above 0"},
 		{url.Values{"name": {"Rice"}, "quantity": {"1"}, "location": {"Cellar"}, "expires_on": {"31/09/2027"}}, "A date isn&#39;t valid."},
 	} {
 		resp := b.addItem(stock.Pantry, c.form)
@@ -163,8 +174,8 @@ func TestItemOfAnotherSection(t *testing.T) {
 	if r := b.hx(wrong+"/decrease", nil); r.StatusCode != http.StatusNotFound {
 		t.Errorf("decrease: %s", r.Status)
 	}
-	if it := a.item(stock.Medicines, "Paracetamol"); it.Quantity != 1 {
-		t.Errorf("quantity %d", it.Quantity)
+	if it := a.item(stock.Medicines, "Paracetamol"); it.Quantity != stock.One {
+		t.Errorf("quantity %v", it.Quantity)
 	}
 }
 
@@ -198,8 +209,8 @@ func TestUseOneFromTheList(t *testing.T) {
 		t.Errorf("not just the list:\n%s", resp.body)
 	}
 	b.hx(itemPath(it)+"/increase", nil)
-	if q := a.item(stock.Pantry, "Passata").Quantity; q != 3 {
-		t.Errorf("after increase: %d", q)
+	if q := a.item(stock.Pantry, "Passata").Quantity; q != 3*stock.One {
+		t.Errorf("after increase: %v", q)
 	}
 	// Without HTMX, the button still works and leads back to the section.
 	if r := b.post(itemPath(it)+"/decrease", nil); r.StatusCode != http.StatusSeeOther || r.Header.Get("Location") != "/pantry" {
@@ -261,8 +272,20 @@ func TestRemoveAndUndo(t *testing.T) {
 		t.Fatalf("still there: %v", items)
 	}
 	b.hx("/pantry/items/restore", undoForm(t, resp.body))
-	if it := a.item(stock.Pantry, "Yogurt"); it.Quantity != 2 {
-		t.Errorf("restored quantity %d", it.Quantity)
+	if it := a.item(stock.Pantry, "Yogurt"); it.Quantity != 2*stock.One {
+		t.Errorf("restored quantity %v", it.Quantity)
+	}
+}
+
+func TestUndoAPart(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}, "quantity": {"0,5"}})
+	resp := b.hx(itemPath(a.item(stock.Pantry, "Flour"))+"/decrease", nil)
+	mustContain(t, resp.body, "Removed Flour.")
+	b.hx("/pantry/items/restore", undoForm(t, resp.body))
+	if it := a.item(stock.Pantry, "Flour"); it.Quantity != 5 {
+		t.Errorf("restored quantity %v", it.Quantity)
 	}
 }
 

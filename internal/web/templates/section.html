@@ -18,7 +18,7 @@
     <div class="grid grid-cols-2 gap-4">
       <label class="block">
         <span class="mb-1 block text-sm font-medium">Quantity</span>
-        <input name="quantity" value="{{or .Form.Quantity "1"}}" type="number" min="1" step="1" required inputmode="numeric"
+        <input name="quantity" value="{{or .Form.Quantity "1"}}" required inputmode="decimal"
                class="w-full rounded border border-stone-300 px-3 py-2 text-base">
       </label>
       <label class="block">
