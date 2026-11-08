@@ -4,7 +4,9 @@ go 1.27.3
 
 require (
 	github.com/blevesearch/snowballstem v0.9.0
+	github.com/dop251/goja v0.0.0-20261014135309-2cb8274eed06
 	github.com/pressly/goose/v3 v3.29.0
+	github.com/sergi/go-diff v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	go.abhg.dev/goldmark/wikilink v0.6.0
 	golang.org/x/crypto v0.58.0
@@ -13,17 +15,20 @@ require (
 )
 
 require (
+	github.com/dlclark/regexp2/v2 v2.11.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/sethvargo/go-retry v0.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
