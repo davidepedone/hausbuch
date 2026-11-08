@@ -10,22 +10,18 @@ that shapes the approach:
   step="1" min="1"`.
 - Increase, decrease, merging on add and opening are single SQL statements relative to the stored quantity, so that
   concurrent changes all count.
-- Migrations may only add (README, development section): no change of what a column means, no constraint existing
-  rows or code could break, so that the previous release keeps working on a database the new one migrated. The
-  `CHECK (quantity >= 1)` rules out storing 0.5 in the current column, and storing tenths in it would change its
-  meaning.
+- SQLite can't drop a `CHECK` constraint or change a column's meaning in place: the table has to be rebuilt.
+- Before migrating a database that already has a schema, the application saves a copy of it in the backup directory.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Exact arithmetic on one-decimal quantities: no floating point anywhere in storage or computation.
-- Going back to the previous release keeps working, and coming forward again doesn't trust a value the previous
-  release left stale.
 
 **Non-Goals:**
 
-- Removing the integer `quantity` column: it can only go in a later release, once no release in use reads it.
+- Keeping the previous release working on a migrated database (see the exception below).
 
 ## Decisions
 
@@ -40,24 +36,25 @@ that shapes the approach:
   so it parses again unchanged.
 - − and + are ±10 tenths; "1 or less" is `<= 10`.
 
-*Alternative considered*: `float64` (or a `REAL` column). Sums of tenths such as 0.1 + 0.2 don't come out exact, and
-the comparisons with 1 that decide removal and opening would depend on rounding.
+*Alternative considered*: `float64` (or a `REAL` column). Sums such as 0.1 + 0.2 don't come out exact, and the
+comparisons with 1 that decide removal and opening would depend on rounding.
 
-### A new column, with the old one kept in step
+### Rebuilding the table, as an exception to the additive rule
 
-Migration `00007` adds `quantity_tenths INTEGER` (nullable) to `stock_item` and fills it with `quantity * 10`. From
-then on every write sets both columns: `quantity_tenths` to the exact value and `quantity` to the tenths rounded up,
-at least 1 (0.5 → 1, 2.5 → 3), so the previous release still reads a valid whole quantity.
+Migration `00007` rebuilds `stock_item` the usual SQLite way: create the new table, copy every row with
+`quantity_tenths = quantity * 10`, drop the old one, rename the new one, recreate the `(section, name_key)` index. The
+new table is the old one with `quantity` replaced by `quantity_tenths INTEGER NOT NULL CHECK (quantity_tenths > 0)`;
+the new name makes the unit visible in every query. Nothing references `stock_item`, so dropping it needs no change
+to foreign key enforcement. The down migration rebuilds it back, rounding up to whole units.
 
-The previous release, if gone back to, changes only `quantity` and inserts rows with `quantity_tenths` NULL. So the
-current quantity is read as `quantity_tenths` only when it is set and `quantity` still equals its rounded-up value;
-otherwise as `quantity * 10`. This rule is one SQL expression in a Go constant, used both in the `SELECT` and in the
-relative updates (`SET quantity_tenths = <current> + 10, quantity = <rounded up of current + 10>`), so increase,
-decrease, merge and opening stay single statements as today.
+This breaks the README's rule that migrations only add: the previous release can't run on a migrated database (its
+queries name `quantity`). The rule exists to make going back possible without touching the data; here the alternative
+was keeping two quantity columns in step with a rule for which one to trust, for a step that is not expected to be
+needed. Going back to the previous release after this one means restoring the copy saved before the migration, losing
+the changes made since. The release notes say so.
 
-*Alternatives considered*: changing the meaning of `quantity` or relaxing its `CHECK` (needs rebuilding the table, and
-breaks the previous release); a generated column for the current value (the same expression, one more schema object
-to keep in mind).
+*Alternative considered*: a new `quantity_tenths` column next to the old one, both written, and the old one trusted
+when the previous release changed it; it keeps the rule but puts a consistency check in every quantity query.
 
 ### A text field with a decimal keyboard
 
@@ -68,15 +65,14 @@ the field must pass the text through and let the server parse it. The server's m
 
 ## Risks / Trade-offs
 
-- [The previous release shows 0.5 as 1 and 2.5 as 3] → Only after going back, which is a recovery step; its own
-  changes are then picked up correctly when coming forward again.
-- [A previous-release change that lands exactly on the rounded-up value, e.g. editing 2.5 (shown as 3) and saving it
-  as 3] → The new release keeps reading 2.5: the user saved what they were shown, so the difference is under one
-  unit and only after going back.
+- [Going back to the previous release needs the pre-migration backup] → Stated in the release notes; the backup is
+  taken automatically.
 - [Tests write quantities in tenths, where `Quantity: 3` now means 0.3] → Every existing test literal is converted
   in the same task as the type change, and a whole-unit constant keeps them readable.
 
 ## Migration Plan
 
-The migration only adds a nullable column and fills it, so it applies on start as usual. Going back to the previous
-release needs nothing: it ignores the new column.
+The migration runs on start as usual, after the automatic copy. Rolling back with `scripts/promote.sh <previous>` alone
+is not enough, since the previous release would fail on the migrated database: stop the container, put the copy saved
+before the migration in place of the database, then promote the previous release. Release notes are generated from
+pull request titles, so the warning is added to this release's notes by hand when it is cut.

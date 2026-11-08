@@ -34,7 +34,8 @@ None.
 
 ## Impact
 
-- A migration adding a column for the quantity in tenths, filled from the current one; the current column stays
-  written, so the previous release keeps working on a migrated database.
+- **BREAKING** for going back: a migration rebuilds the items table with the quantity in tenths, an exception to the
+  rule that migrations only add. The previous release can't run on a migrated database; going back means restoring
+  the copy saved before the migration. The release notes must say so.
 - `internal/stock` (validation, add and merge, increase, decrease, open, restore), the quantity parsing and messages in
   `internal/web/stock.go`, and the quantity fields and displays in the section, item and home templates.

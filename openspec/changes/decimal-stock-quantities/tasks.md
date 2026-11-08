@@ -3,8 +3,7 @@
 ## 1. Model and store (`household-stock`)
 
 - [ ] 1.1 Add `stock.Quantity` (tenths) with parsing (dot or comma, at most one decimal, above 0) and `String`, and convert `Values.Quantity` and every existing test literal to it; verify unit tests for the accepted and refused texts of both "Add an item" quantity scenarios and for "2", "1.5" and "2.0" printing
-- [ ] 1.2 Add migration `00007` with `quantity_tenths` filled from `quantity`, read the current quantity with the rule in the design, and write both columns in add, merge, update, increase, decrease and open; verify store tests for every "Change the quantity" and "Shelf life after opening" scenario, including two concurrent decreases, and a test that rows changed or inserted through the integer column alone (as the previous release does) are read from it
-- [ ] 1.3 Verify that a database migrated by `00007` and written with decimal quantities opens and lists its rows with the previous release's code (the additive rule)
+- [ ] 1.2 Add migration `00007` rebuilding `stock_item` with `quantity_tenths`, and use it in add, merge, update, increase, decrease and open; verify a migration test that existing rows keep their values with quantities times ten and the index exists, and store tests for every "Change the quantity" and "Shelf life after opening" scenario, including two concurrent decreases
 
 ## 2. Web interface
 
@@ -17,3 +16,4 @@
 ## Workflow follow-up
 
 - Archive the change once merged, which closes issue #29.
+- When cutting the release that contains it, add to its GitHub release notes that rolling back needs the database copy saved before the migration.
