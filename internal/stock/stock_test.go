@@ -752,3 +752,54 @@ func TestMoveToAnUnknownSection(t *testing.T) {
 		t.Errorf("pantry: %v", items)
 	}
 }
+
+func TestForgottenWhereItWas(t *testing.T) {
+	var f *fixture
+	for _, c := range []struct {
+		name   string
+		before func() // what Supplies already holds
+		moved  Values // the row's values once edited
+	}{
+		{"moved", func() {}, Values{Name: "Dish soap", Quantity: 1 * One}},
+		{"renamed while moving", func() {}, Values{Name: "Washing-up liquid", Quantity: 1 * One}},
+		{"moved onto an existing row", func() { f.add(Supplies, Values{Name: "Dish soap", Quantity: 1 * One}) },
+			Values{Name: "Dish soap", Quantity: 1 * One}},
+	} {
+		f = newFixture(t)
+		c.before()
+		id := f.add(Pantry, Values{Name: "Dish soap", Quantity: 1 * One, Location: "Under the sink"})
+		if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, c.moved, Supplies); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if _, found, _ := f.stock.Product(ctx, Pantry, "Dish soap"); found {
+			t.Errorf("%s: still suggested in the pantry", c.name)
+		}
+		if got, _ := f.stock.Names(ctx, Pantry); len(got) != 0 {
+			t.Errorf("%s: pantry names %v", c.name, got)
+		}
+	}
+}
+
+func TestStillRememberedWhereRowsRemain(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30)})
+	v := Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 3, 31)}
+	id := f.add(Pantry, v)
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, v, Supplies); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, _ := f.stock.Product(ctx, Pantry, "Passata"); !found {
+		t.Error("forgotten in the pantry")
+	}
+}
+
+func TestEditingInPlaceKeepsTheProduct(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Rice", Quantity: 1 * One})
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Rice", Quantity: 2 * One}, Pantry); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, _ := f.stock.Product(ctx, Pantry, "Rice"); !found {
+		t.Error("forgotten after an edit")
+	}
+}

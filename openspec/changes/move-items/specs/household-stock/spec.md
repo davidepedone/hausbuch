@@ -6,7 +6,7 @@
 While editing a row, any signed-in user SHALL be able to choose another section for it. Saving SHALL move the row
 there with its values, as edited, and show it in its new section. When the new section has an unopened row with the
 same name, ignoring case, and expiry date, and the moved row isn't opened, the quantity SHALL be added to that row
-instead, and the new section SHALL remember the product as after adding it.
+instead.
 
 #### Scenario: Move to the right section
 - **WHEN** a user edits "Dishwasher tablets" in Pantry, chooses Supplies and saves
@@ -21,10 +21,22 @@ instead, and the new section SHALL remember the product as after adding it.
 - **WHEN** Supplies holds an unopened "Descaler" and a user moves an opened "Descaler" with the same expiry date
 - **THEN** Supplies holds both rows, apart
 
+#### Scenario: Edit and move together
+- **WHEN** a user changes the quantity of "Detergent" to 2 and moves it to Supplies in the same save
+- **THEN** the row is in Supplies with quantity 2
+
+### Requirement: Suggestions after a move
+After a row is moved, the new section SHALL remember its product as after adding it there, and the section it left
+SHALL forget the product, unless rows with the same name, ignoring case, remain there.
+
 #### Scenario: Suggested in the new section
 - **WHEN** a user moves "Dishwasher tablets" in the category "Cleaning" from Pantry to Supplies
 - **THEN** choosing "Dishwasher tablets" while adding to Supplies fills in the category "Cleaning"
 
-#### Scenario: Edit and move together
-- **WHEN** a user changes the quantity of "Detergent" to 2 and moves it to Supplies in the same save
-- **THEN** the row is in Supplies with quantity 2
+#### Scenario: Forgotten where it was
+- **WHEN** a user moves the only "Dish soap" row from Pantry to Supplies
+- **THEN** "Dish soap" is no longer suggested while adding an item to Pantry
+
+#### Scenario: Still remembered where rows remain
+- **WHEN** Pantry holds two "Passata" rows with different expiry dates and a user moves one of them to Supplies
+- **THEN** "Passata" is still suggested while adding an item to Pantry

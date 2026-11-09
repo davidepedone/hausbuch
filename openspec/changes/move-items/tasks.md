@@ -3,6 +3,7 @@
 ## 1. Store
 
 - [x] 1.1 Give `stock.Store.Update` the target section and return the row's resulting id, moving or merging as the design says; verify store tests for "Move to the right section", "Move onto the same product", "Opened row moves apart", "Suggested in the new section", "Edit and move together" and an unknown target refused
+- [x] 1.2 Forget the product in the section a row leaves, unless rows with its name remain; verify store tests for "Forgotten where it was", "Still remembered where rows remain", a row renamed while moving, and the same after a move onto an existing row
 
 ## 2. Web interface
 
@@ -14,4 +15,4 @@
 
 ## Workflow follow-up
 
-- Archive the change once merged, which closes issue #47.
+- Archive the change once merged, which closes issues #47 and #51.

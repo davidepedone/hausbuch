@@ -28,7 +28,8 @@ transaction:
   quantity grows by the edited quantity (with `changed_by` and `changed_at` set) and the moved row is deleted;
 - otherwise the row is updated as today with `section` set to the target.
 
-The product is remembered in the target section. `Update` returns the id the row ends up with, so that the save can
+The product is remembered in the target section. The row's name before the edit is read first; once the row is
+moved, the old section's product with that name is deleted unless a row with it remains there. `Update` returns the id the row ends up with, so that the save can
 redirect to `/<target>#item-<id>`; a target that isn't a section is refused like any other invalid field.
 
 *Alternative considered*: a separate `Move`, called after `Update`. Two transactions, and a failure between them
