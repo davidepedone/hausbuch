@@ -46,9 +46,9 @@ func TestOpenAnOldRevision(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	path := b.create("Pasta", "Boil **water**.")
-	b.saveForm(path, url.Values{"title": {"Spaghetti"}, "type": {"recipe"}, "language": {"it"}, "body": {"v2"}})
+	b.saveForm(path, url.Values{"title": {"Spaghetti"}, "type": {"recipe"}, "body": {"v2"}})
 	html := b.view(path + "/revisions/1")
-	mustContain(t, html, "not the current version", ">Pasta</h1>", "Blank · English", "<strong>water</strong>",
+	mustContain(t, html, "not the current version", ">Pasta</h1>", `<p class="mb-6 text-sm text-stone-500">Blank</p>`, "<strong>water</strong>",
 		`action="`+path+`/revisions/1/restore"`)
 	if resp := b.get(path + "/revisions/3"); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("missing revision: %s", resp.Status)
@@ -96,11 +96,11 @@ func TestConflictingSave(t *testing.T) {
 	anna.view(path + "/edit")
 	mustContain(t, marco.view(path+"/edit?anyway=1"), `name="revision" value="1"`)
 
-	if resp := anna.post(path, url.Values{"title": {"Pasta"}, "language": {"en"}, "body": {"boil\npepper\n"},
+	if resp := anna.post(path, url.Values{"title": {"Pasta"}, "body": {"boil\npepper\n"},
 		"revision": {"1"}}); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("first save: %s", resp.Status)
 	}
-	marcos := url.Values{"title": {"Pasta"}, "language": {"en"}, "body": {"boil\nsalt\nserve\n"}, "revision": {"1"}}
+	marcos := url.Values{"title": {"Pasta"}, "body": {"boil\nsalt\nserve\n"}, "revision": {"1"}}
 	resp := marco.post(path, marcos)
 	if resp.StatusCode != http.StatusConflict {
 		t.Fatalf("second save: %s", resp.Status)

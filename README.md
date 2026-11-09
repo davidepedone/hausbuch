@@ -42,7 +42,6 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_DB_PATH` | SQLite database file | `/data/hausbuch.db` |
 | `HAUSBUCH_LISTEN` | listen address | `:8080` |
 | `HAUSBUCH_SESSION_TIMEOUT` | how long a session lasts without being used, as a Go duration | `720h` (30 days) |
-| `HAUSBUCH_DEFAULT_LANGUAGE` | language new pages start in: `en` (English) or `it` (Italian) | `en` |
 | `HAUSBUCH_BACKUP_DIR` | directory the copies of the database are saved in (see [Backups](#backups)) | `backups` next to the database file |
 | `HAUSBUCH_BACKUP_KEEP` | how many daily copies to keep, at least 1 | `7` |
 | `HAUSBUCH_MEDICINES_LEAD_DAYS` | how many days before their expiry date medicines are pointed out as expiring, at least 0 | `30` |

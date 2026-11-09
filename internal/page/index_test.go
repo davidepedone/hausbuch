@@ -63,10 +63,10 @@ func TestIndexFollowsSaveDeleteAndRestore(t *testing.T) {
 	f.wantIndexed("filter", id)
 }
 
-func TestIndexIsInThePagesLanguage(t *testing.T) {
+func TestIndexHoldsBothLanguages(t *testing.T) {
 	f := newFixture(t)
 	id, err := f.pages.Create(ctx, f.anna.ID,
-		Content{Title: "Giardino", Type: Blank, Language: "it", Body: "L'irrigazione parte ad aprile."})
+		Content{Title: "Giardino", Type: Blank, Body: "L'irrigazione parte ad aprile."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestIndexIsInThePagesLanguage(t *testing.T) {
 	if err := f.pages.DB.QueryRowContext(ctx, "SELECT body_stem FROM page_fts WHERE rowid = ?", id).Scan(&stems); err != nil {
 		t.Fatal(err)
 	}
-	if want := search.Stems("L'irrigazione parte ad aprile.", "it"); stems != want {
+	if want := search.Stems("L'irrigazione parte ad aprile."); stems != want {
 		t.Errorf("body stems %q, want %q", stems, want)
 	}
 }

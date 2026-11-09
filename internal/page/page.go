@@ -43,25 +43,18 @@ func (t Type) Label() string {
 //go:embed pagetypes
 var skeletons embed.FS
 
-// Skeleton returns the text a new page of type t in language lang starts with: empty for Blank.
-func Skeleton(t Type, lang string) string {
-	b, err := skeletons.ReadFile("pagetypes/" + string(t) + "." + lang + ".md")
+// Skeleton returns the text a new page of type t starts with: empty for Blank.
+func Skeleton(t Type) string {
+	b, err := skeletons.ReadFile("pagetypes/" + string(t) + ".md")
 	if err != nil {
 		return ""
 	}
 	return string(b)
 }
 
-// Languages lists the languages a page can be written in, as codes.
-var Languages = []string{"en", "it"}
-
-// LanguageName returns the name of a language code as shown to users.
-func LanguageName(code string) string {
-	if code == "it" {
-		return "Italian"
-	}
-	return "English"
-}
+// storedLanguage fills the language columns of pages and revisions, which nothing reads any more: a previous release
+// still needs a value in them to run on this database.
+const storedLanguage = "en"
 
 // DeletedLifetime is how long a deleted page can be restored before it is removed for good.
 const DeletedLifetime = 30 * 24 * time.Hour
@@ -82,10 +75,9 @@ func (e *TitleTakenError) Error() string { return "the title is taken by page " 
 
 // Content is what a user writes in the editor.
 type Content struct {
-	Title    string
-	Type     Type
-	Language string
-	Body     string
+	Title string
+	Type  Type
+	Body  string
 }
 
 // Page is a page with its current content.
@@ -134,7 +126,7 @@ func (s *Store) Create(ctx context.Context, userID int64, c Content) (int64, err
 		}
 		res, err := tx.ExecContext(ctx,
 			"INSERT INTO page (title, title_key, type, language, revision) VALUES (?, ?, ?, ?, 0)",
-			c.Title, titleKey(c.Title), c.Type, c.Language)
+			c.Title, titleKey(c.Title), c.Type, storedLanguage)
 		if err != nil {
 			return err
 		}
@@ -170,10 +162,10 @@ func (s *Store) Update(ctx context.Context, id, userID int64, base int, c Conten
 		var current int
 		var old Content
 		err := tx.QueryRowContext(ctx, `
-			SELECT p.title_key, p.revision, r.title, r.type, r.language, r.body
+			SELECT p.title_key, p.revision, r.title, r.type, r.body
 			FROM page p JOIN page_revision r ON r.page_id = p.id AND r.number = p.revision
 			WHERE p.id = ? AND p.deleted_at IS NULL`, id).
-			Scan(&oldKey, &current, &old.Title, &old.Type, &old.Language, &old.Body)
+			Scan(&oldKey, &current, &old.Title, &old.Type, &old.Body)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -199,8 +191,8 @@ func (s *Store) Update(ctx context.Context, id, userID int64, base int, c Conten
 				return err
 			}
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE page SET title = ?, title_key = ?, type = ?, language = ? WHERE id = ?",
-			c.Title, titleKey(c.Title), c.Type, c.Language, id); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE page SET title = ?, title_key = ?, type = ? WHERE id = ?",
+			c.Title, titleKey(c.Title), c.Type, id); err != nil {
 			return err
 		}
 		return s.appendRevision(ctx, tx, id, userID, c)
@@ -252,7 +244,7 @@ func (s *Store) appendRevision(ctx context.Context, tx *sql.Tx, id, userID int64
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO page_revision (page_id, number, title, type, language, body, author_id, created_at)
 		SELECT id, revision + 1, ?, ?, ?, ?, ?, ? FROM page WHERE id = ?`,
-		c.Title, c.Type, c.Language, c.Body, userID, s.Now().Unix(), id); err != nil {
+		c.Title, c.Type, storedLanguage, c.Body, userID, s.Now().Unix(), id); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, "UPDATE page SET revision = revision + 1 WHERE id = ?", id); err != nil {
@@ -275,11 +267,11 @@ func index(ctx context.Context, tx *sql.Tx, id int64) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM page_fts WHERE rowid = ?", id); err != nil {
 		return err
 	}
-	var title, body, lang string
+	var title, body string
 	err := tx.QueryRowContext(ctx, `
-		SELECT p.title, r.body, p.language
+		SELECT p.title, r.body
 		FROM page p JOIN page_revision r ON r.page_id = p.id AND r.number = p.revision
-		WHERE p.id = ? AND p.deleted_at IS NULL`, id).Scan(&title, &body, &lang)
+		WHERE p.id = ? AND p.deleted_at IS NULL`, id).Scan(&title, &body)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -287,7 +279,7 @@ func index(ctx context.Context, tx *sql.Tx, id int64) error {
 		return err
 	}
 	_, err = tx.ExecContext(ctx, "INSERT INTO page_fts (rowid, title_stem, body_stem) VALUES (?, ?, ?)",
-		id, search.Stems(title, lang), search.Stems(body, lang))
+		id, search.Stems(title), search.Stems(body))
 	return err
 }
 
@@ -325,7 +317,7 @@ func (s *Store) Reindex(ctx context.Context) error {
 
 // The current content of pages, with who created and last changed them and who deleted them.
 const selectPages = `
-	SELECT p.id, p.revision, p.title, p.type, p.language, r.body, cu.display_name, r.created_at, ru.display_name,
+	SELECT p.id, p.revision, p.title, p.type, r.body, cu.display_name, r.created_at, ru.display_name,
 		p.deleted_at, COALESCE(du.display_name, '')
 	FROM page p
 	JOIN page_revision r ON r.page_id = p.id AND r.number = p.revision
@@ -338,7 +330,7 @@ func scanPage(row interface{ Scan(...any) error }) (Page, error) {
 	var p Page
 	var changedAt int64
 	var deletedAt sql.NullInt64
-	if err := row.Scan(&p.ID, &p.Revision, &p.Title, &p.Type, &p.Language, &p.Body, &p.CreatedBy, &changedAt,
+	if err := row.Scan(&p.ID, &p.Revision, &p.Title, &p.Type, &p.Body, &p.CreatedBy, &changedAt,
 		&p.ChangedBy, &deletedAt, &p.DeletedBy); err != nil {
 		return Page{}, err
 	}
@@ -409,13 +401,13 @@ type Revision struct {
 }
 
 const selectRevisions = `
-	SELECT r.number, r.title, r.type, r.language, r.body, u.display_name, r.created_at
+	SELECT r.number, r.title, r.type, r.body, u.display_name, r.created_at
 	FROM page_revision r JOIN app_user u ON u.id = r.author_id WHERE r.page_id = ?`
 
 func scanRevision(row interface{ Scan(...any) error }) (Revision, error) {
 	var r Revision
 	var createdAt int64
-	err := row.Scan(&r.Number, &r.Title, &r.Type, &r.Language, &r.Body, &r.Author, &createdAt)
+	err := row.Scan(&r.Number, &r.Title, &r.Type, &r.Body, &r.Author, &createdAt)
 	r.CreatedAt = time.Unix(createdAt, 0)
 	return r, err
 }
@@ -565,7 +557,7 @@ func (s *Store) Search(ctx context.Context, text string) ([]Result, error) {
 	})
 	results := make([]Result, len(pages))
 	for i, p := range pages {
-		results[i] = Result{Page: p, Excerpt: search.MakeExcerpt(p.Body, p.Language, text)}
+		results[i] = Result{Page: p, Excerpt: search.MakeExcerpt(p.Body, text)}
 	}
 	return results, nil
 }

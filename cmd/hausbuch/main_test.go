@@ -27,15 +27,6 @@ func TestHealthURL(t *testing.T) {
 	}
 }
 
-func TestServeRefusesUnknownDefaultLanguage(t *testing.T) {
-	t.Setenv("HAUSBUCH_DEFAULT_LANGUAGE", "de")
-	t.Setenv("HAUSBUCH_DB_PATH", filepath.Join(t.TempDir(), "hausbuch.db"))
-	t.Setenv("HAUSBUCH_LISTEN", "127.0.0.1:0")
-	if code := run([]string{"serve"}, nil, io.Discard, io.Discard); code != 1 {
-		t.Errorf("exit code = %d, want 1", code)
-	}
-}
-
 func TestLeadTimes(t *testing.T) {
 	lead, err := leadTimes()
 	if err != nil || lead[stock.Medicines] != 30 || lead[stock.Pantry] != 7 || lead[stock.Supplies] != 7 {

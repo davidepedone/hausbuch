@@ -50,7 +50,7 @@ func (f *fixture) addUser(username, name string) user.User {
 
 func (f *fixture) create(u user.User, title, body string) int64 {
 	f.t.Helper()
-	id, err := f.pages.Create(ctx, u.ID, Content{Title: title, Type: Blank, Language: "en", Body: body})
+	id, err := f.pages.Create(ctx, u.ID, Content{Title: title, Type: Blank, Body: body})
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestCreateRecordsCreator(t *testing.T) {
 func TestTitleAlreadyUsed(t *testing.T) {
 	f := newFixture(t)
 	id := f.create(f.anna, "Coffee machine", "")
-	_, err := f.pages.Create(ctx, f.marco.ID, Content{Title: " coffee MACHINE ", Type: Blank, Language: "en"})
+	_, err := f.pages.Create(ctx, f.marco.ID, Content{Title: " coffee MACHINE ", Type: Blank})
 	var taken *TitleTakenError
 	if !errors.As(err, &taken) || taken.PageID != id || taken.Title != "Coffee machine" || taken.Deleted {
 		t.Errorf("err = %v (%+v), want title taken by page %d", err, taken, id)
@@ -115,7 +115,7 @@ func TestTitleAlreadyUsed(t *testing.T) {
 func TestEmptyTitle(t *testing.T) {
 	f := newFixture(t)
 	for _, title := range []string{"", "  \t"} {
-		if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: title, Type: Blank, Language: "en"}); !errors.Is(err, ErrEmptyTitle) {
+		if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: title, Type: Blank}); !errors.Is(err, ErrEmptyTitle) {
 			t.Errorf("Create(%q) = %v, want ErrEmptyTitle", title, err)
 		}
 	}
@@ -140,19 +140,6 @@ func TestEditBody(t *testing.T) {
 	}
 }
 
-func TestChangeLanguageKeepsBody(t *testing.T) {
-	f := newFixture(t)
-	id := f.create(f.anna, "Pasta", "Boil water.")
-	p := f.get(id)
-	p.Language = "it"
-	if err := f.pages.Update(ctx, id, f.anna.ID, p.Revision, p.Content); err != nil {
-		t.Fatal(err)
-	}
-	if p := f.get(id); p.Language != "it" || p.Body != "Boil water." {
-		t.Errorf("page = %+v", p)
-	}
-}
-
 func TestRenameKeepsFormerTitleAsLink(t *testing.T) {
 	f := newFixture(t)
 	id := f.create(f.anna, "Coffee maker", "")
@@ -166,7 +153,7 @@ func TestRenameKeepsFormerTitleAsLink(t *testing.T) {
 		t.Errorf("new title resolves to %d, want %d", got, id)
 	}
 	// The former title stays taken, by the renamed page.
-	_, err := f.pages.Create(ctx, f.marco.ID, Content{Title: "Coffee maker", Type: Blank, Language: "en"})
+	_, err := f.pages.Create(ctx, f.marco.ID, Content{Title: "Coffee maker", Type: Blank})
 	var taken *TitleTakenError
 	if !errors.As(err, &taken) || taken.PageID != id || taken.Title != "Coffee machine" {
 		t.Errorf("creating with the former title = %v, want taken by the renamed page", err)
@@ -255,7 +242,7 @@ func TestListNewestChangeFirstWithTypeFilter(t *testing.T) {
 	f := newFixture(t)
 	pasta := f.create(f.anna, "Pasta", "")
 	f.now = f.now.Add(time.Minute)
-	if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: "Pizza", Type: Recipe, Language: "en"}); err != nil {
+	if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: "Pizza", Type: Recipe}); err != nil {
 		t.Fatal(err)
 	}
 	f.now = f.now.Add(time.Minute)
@@ -328,7 +315,7 @@ func TestDeleteAndRestore(t *testing.T) {
 		t.Fatalf("deleted = %+v", deleted)
 	}
 
-	_, err = f.pages.Create(ctx, f.anna.ID, Content{Title: "tomato sauce", Type: Blank, Language: "en"})
+	_, err = f.pages.Create(ctx, f.anna.ID, Content{Title: "tomato sauce", Type: Blank})
 	var taken *TitleTakenError
 	if !errors.As(err, &taken) || taken.PageID != sauce || !taken.Deleted {
 		t.Errorf("creating with a deleted page's title = %v, want taken by deleted page %d", err, sauce)
@@ -363,7 +350,7 @@ func TestRemovalAfter30Days(t *testing.T) {
 	if err := f.pages.Restore(ctx, id); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Restore = %v, want ErrNotFound", err)
 	}
-	if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: "Old notes", Type: Blank, Language: "en"}); err != nil {
+	if _, err := f.pages.Create(ctx, f.anna.ID, Content{Title: "Old notes", Type: Blank}); err != nil {
 		t.Errorf("creating with the removed page's title = %v", err)
 	}
 	var revisions int

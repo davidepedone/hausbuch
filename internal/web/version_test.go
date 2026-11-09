@@ -6,7 +6,7 @@ import (
 )
 
 func TestFooterOfAReleasedBuild(t *testing.T) {
-	a := newAppWith(t, "en", "2026.11.3")
+	a := newAppAt(t, "2026.11.3")
 	b := a.signedInAs("anna", "Anna")
 	for _, p := range []string{"/", "/pantry", "/search?q=x", "/account/password"} {
 		mustContain(t, b.view(p), "<span>hausbuch 2026.11.3</span>",
@@ -26,7 +26,7 @@ func TestFooterOfADevBuild(t *testing.T) {
 }
 
 func TestNoVersionWhenNotSignedIn(t *testing.T) {
-	a := newAppWith(t, "en", "2026.11.3")
+	a := newAppAt(t, "2026.11.3")
 	login := a.browser().get("/login")
 	if strings.Contains(login.body, "2026.11.3") || strings.Contains(login.body, "<footer") {
 		t.Errorf("version shown on the sign-in page:\n%s", login.body)

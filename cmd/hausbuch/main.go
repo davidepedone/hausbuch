@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"time"
 	_ "time/tzdata" // the image has no time zone database, and TZ needs one
@@ -78,11 +77,6 @@ func serve(addr, dbPath, backupDir string) int {
 		}
 		timeout = d
 	}
-	language := envOr("HAUSBUCH_DEFAULT_LANGUAGE", "en")
-	if !slices.Contains(page.Languages, language) {
-		slog.Error("HAUSBUCH_DEFAULT_LANGUAGE must be one of the page languages", "value", language, "languages", page.Languages)
-		return 1
-	}
 	keep := 7
 	if v := os.Getenv("HAUSBUCH_BACKUP_KEEP"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -116,7 +110,7 @@ func serve(addr, dbPath, backupDir string) int {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users, pages, items, language, version),
+		Handler:           web.NewHandler(users, pages, items, version),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)

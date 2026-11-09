@@ -26,7 +26,7 @@ func (a *testApp) signedInAs(username, displayName string) *browser {
 // create submits the new page form and returns the created page's path.
 func (b *browser) create(title, body string) string {
 	b.app.t.Helper()
-	resp := b.post("/pages", url.Values{"title": {title}, "language": {"en"}, "body": {body}})
+	resp := b.post("/pages", url.Values{"title": {title}, "body": {body}})
 	if resp.StatusCode != http.StatusSeeOther {
 		b.app.t.Fatalf("create %q: %s\n%s", title, resp.Status, resp.body)
 	}
@@ -35,7 +35,7 @@ func (b *browser) create(title, body string) string {
 
 func (b *browser) save(path, title, body string) response {
 	b.app.t.Helper()
-	return b.saveForm(path, url.Values{"title": {title}, "language": {"en"}, "body": {body}})
+	return b.saveForm(path, url.Values{"title": {title}, "body": {body}})
 }
 
 // saveForm submits the editor of the page at path, started from its current revision.
@@ -93,7 +93,7 @@ func TestCreatePageWithUsedTitle(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	path := b.create("Coffee machine", "")
-	resp := b.post("/pages", url.Values{"title": {" coffee MACHINE "}, "language": {"en"}, "body": {"My notes"}})
+	resp := b.post("/pages", url.Values{"title": {" coffee MACHINE "}, "body": {"My notes"}})
 	if resp.StatusCode != http.StatusConflict {
 		t.Errorf("status = %s", resp.Status)
 	}
@@ -103,36 +103,22 @@ func TestCreatePageWithUsedTitle(t *testing.T) {
 func TestCreatePageWithEmptyTitle(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
-	resp := b.post("/pages", url.Values{"title": {"   "}, "language": {"en"}, "body": {"My notes"}})
+	resp := b.post("/pages", url.Values{"title": {"   "}, "body": {"My notes"}})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status = %s", resp.Status)
 	}
 	mustContain(t, resp.body, "Give the page a title.", "My notes")
 }
 
-func TestDefaultLanguage(t *testing.T) {
-	for lang, want := range map[string]string{"it": `<option value="it" selected>Italian</option>`,
-		"en": `<option value="en" selected>English</option>`} {
-		a := newAppIn(t, lang)
-		b := a.signedInAs("anna", "Anna")
-		mustContain(t, b.view("/pages/new"), want)
-	}
-}
-
-func TestChangeLanguage(t *testing.T) {
+func TestNoLanguage(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	path := b.create("Pasta", "Boil water.")
-	resp := b.saveForm(path, url.Values{"title": {"Pasta"}, "language": {"it"}, "body": {"Boil water."}})
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("save: %s", resp.Status)
+	for _, p := range []string{"/pages/new", path + "/edit", path, path + "/revisions/1"} {
+		if html := b.view(p); strings.Contains(html, "English") || strings.Contains(html, `name="language"`) {
+			t.Errorf("%s shows a language:\n%s", p, html)
+		}
 	}
-	html := b.view(path)
-	mustContain(t, html, "Italian")
-	if got := renderedBody(t, html); got != "<p>Boil water.</p>\n" {
-		t.Errorf("body = %q", got)
-	}
-	mustContain(t, b.view(path+"/edit"), `<option value="it" selected>Italian</option>`)
 }
 
 func TestFormattedBodyAndHTML(t *testing.T) {
@@ -266,7 +252,7 @@ func TestChipsOfThePageList(t *testing.T) {
 	b.create("Irrigation", "")
 	anna, _ := a.users.Authenticate(context.Background(), "anna", "pw")
 	if _, err := a.pages.Create(context.Background(), anna.ID,
-		page.Content{Title: "Pizza", Type: page.Recipe, Language: "en"}); err != nil {
+		page.Content{Title: "Pizza", Type: page.Recipe}); err != nil {
 		t.Fatal(err)
 	}
 	html := b.view("/")
@@ -318,7 +304,7 @@ func TestDeleteAndRestorePage(t *testing.T) {
 		`action="`+sauce+`/restore"`)
 
 	// Creating a page with its title offers to restore it.
-	resp := anna.post("/pages", url.Values{"title": {"Tomato sauce"}, "language": {"en"}})
+	resp := anna.post("/pages", url.Values{"title": {"Tomato sauce"}})
 	if resp.StatusCode != http.StatusConflict {
 		t.Errorf("status = %s", resp.Status)
 	}

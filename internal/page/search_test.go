@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func (f *fixture) createIn(lang, title, body string) int64 {
+func (f *fixture) createPage(title, body string) int64 {
 	f.t.Helper()
-	id, err := f.pages.Create(ctx, f.anna.ID, Content{Title: title, Type: Blank, Language: lang, Body: body})
+	id, err := f.pages.Create(ctx, f.anna.ID, Content{Title: title, Type: Blank, Body: body})
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func (f *fixture) search(text string) []int64 {
 
 func TestSearchEnglishWordForms(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("en", "Coffee machine", "Descaling every three months.")
+	id := f.createPage("Coffee machine", "Descaling every three months.")
 	if got := f.search("descale"); !slices.Contains(got, id) {
 		t.Errorf("descale: %v, want Coffee machine (%d) among them", got, id)
 	}
@@ -37,7 +37,7 @@ func TestSearchEnglishWordForms(t *testing.T) {
 
 func TestSearchItalianWordForms(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("it", "Giardino", "L'irrigazione parte ad aprile.")
+	id := f.createPage("Giardino", "L'irrigazione parte ad aprile.")
 	if got := f.search("irrigare"); !slices.Contains(got, id) {
 		t.Errorf("irrigare: %v, want Giardino (%d) among them", got, id)
 	}
@@ -45,9 +45,9 @@ func TestSearchItalianWordForms(t *testing.T) {
 
 func TestSearchWithoutChoosingALanguage(t *testing.T) {
 	f := newFixture(t)
-	a := f.createIn("it", "Ricette di casa", "Le ricette della nonna.")
-	b := f.createIn("it", "Tiramisù", "La ricetta: mascarpone, uova, savoiardi.")
-	f.createIn("en", "Coffee machine", "Descaling.")
+	a := f.createPage("Ricette di casa", "Le ricette della nonna.")
+	b := f.createPage("Tiramisù", "La ricetta: mascarpone, uova, savoiardi.")
+	f.createPage("Coffee machine", "Descaling.")
 	if got, want := f.search("ricetta"), []int64{a, b}; !sameIDs(got, want) {
 		t.Errorf("ricetta: %v, want %v", got, want)
 	}
@@ -55,8 +55,8 @@ func TestSearchWithoutChoosingALanguage(t *testing.T) {
 
 func TestSearchNeedsAllWords(t *testing.T) {
 	f := newFixture(t)
-	f.createIn("en", "Garden", "Mow the lawn in spring.")
-	both := f.createIn("en", "Irrigation", "Water the garden at dawn.")
+	f.createPage("Garden", "Mow the lawn in spring.")
+	both := f.createPage("Irrigation", "Water the garden at dawn.")
 	if got := f.search("garden water"); !slices.Equal(got, []int64{both}) {
 		t.Errorf("garden water: %v, want only %d", got, both)
 	}
@@ -64,7 +64,7 @@ func TestSearchNeedsAllWords(t *testing.T) {
 
 func TestSearchIgnoresCaseAndAccents(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("it", "Città", "Perché il caffè è buono.")
+	id := f.createPage("Città", "Perché il caffè è buono.")
 	for _, text := range []string{"CITTÀ", "citta", "caffe", "PERCHE"} {
 		if got := f.search(text); !slices.Equal(got, []int64{id}) {
 			t.Errorf("%s: %v, want %d", text, got, id)
@@ -74,7 +74,7 @@ func TestSearchIgnoresCaseAndAccents(t *testing.T) {
 
 func TestSearchSkipsDeletedPages(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("en", "Old boiler", "The boiler manual is in the cellar.")
+	id := f.createPage("Old boiler", "The boiler manual is in the cellar.")
 	if err := f.pages.Delete(ctx, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +85,8 @@ func TestSearchSkipsDeletedPages(t *testing.T) {
 
 func TestSearchPutsTitleMatchesFirst(t *testing.T) {
 	f := newFixture(t)
-	garden := f.createIn("en", "Garden", "Irrigation starts in April; irrigation stops in October. Irrigation!")
-	irrigation := f.createIn("en", "Irrigation", "Turn the tap.")
+	garden := f.createPage("Garden", "Irrigation starts in April; irrigation stops in October. Irrigation!")
+	irrigation := f.createPage("Irrigation", "Turn the tap.")
 	if got, want := f.search("irrigation"), []int64{irrigation, garden}; !slices.Equal(got, want) {
 		t.Errorf("irrigation: %v, want %v", got, want)
 	}
@@ -94,7 +94,7 @@ func TestSearchPutsTitleMatchesFirst(t *testing.T) {
 
 func TestSearchExcerpt(t *testing.T) {
 	f := newFixture(t)
-	f.createIn("en", "Coffee machine", "Fill the tank.\n\nDescaling every three months.")
+	f.createPage("Coffee machine", "Fill the tank.\n\nDescaling every three months.")
 	results, err := f.pages.Search(ctx, "descale")
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestSearchExcerpt(t *testing.T) {
 
 func TestSearchTakesQueryOperatorsLiterally(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("en", "Notes", "Not the garden, near the shed: the key.")
+	id := f.createPage("Notes", "Not the garden, near the shed: the key.")
 	for text, want := range map[string][]int64{
 		`NOT garden`:             {id},
 		`garden OR nothing`:      nil,
@@ -133,9 +133,9 @@ func sameIDs(a, b []int64) bool {
 
 func TestSearchPartOfATitle(t *testing.T) {
 	f := newFixture(t)
-	irrigation := f.createIn("en", "Irrigation", "Turn the tap.")
-	coffee := f.createIn("it", "Caffè con la moka", "Riempi la base.")
-	f.createIn("en", "Garden", "Mow the lawn.")
+	irrigation := f.createPage("Irrigation", "Turn the tap.")
+	coffee := f.createPage("Caffè con la moka", "Riempi la base.")
+	f.createPage("Garden", "Mow the lawn.")
 	if got := f.search("irri"); !slices.Equal(got, []int64{irrigation}) {
 		t.Errorf("irri: %v, want Irrigation (%d)", got, irrigation)
 	}
@@ -149,9 +149,9 @@ func TestSearchPartOfATitle(t *testing.T) {
 
 func TestSearchPutsPartialTitleMatchesFirst(t *testing.T) {
 	f := newFixture(t)
-	body := f.createIn("en", "Garden", "Watering every evening.")
-	stem := f.createIn("en", "Watering", "Turn the tap.")
-	part := f.createIn("en", "Waterproof boots", "In the cellar.")
+	body := f.createPage("Garden", "Watering every evening.")
+	stem := f.createPage("Watering", "Turn the tap.")
+	part := f.createPage("Waterproof boots", "In the cellar.")
 	got := f.search("water")
 	if len(got) != 3 || got[2] != body || !slices.Contains(got[:2], stem) || !slices.Contains(got[:2], part) {
 		t.Errorf("water: %v, want %d and %d before %d", got, stem, part, body)
@@ -160,7 +160,7 @@ func TestSearchPutsPartialTitleMatchesFirst(t *testing.T) {
 
 func TestSearchSkipsDeletedTitles(t *testing.T) {
 	f := newFixture(t)
-	id := f.createIn("en", "Irrigation", "Turn the tap.")
+	id := f.createPage("Irrigation", "Turn the tap.")
 	if err := f.pages.Delete(ctx, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
