@@ -23,19 +23,6 @@ surrounding whitespace, and SHALL NOT be empty.
 - **WHEN** a user creates a page with an empty or whitespace-only title
 - **THEN** the system refuses and asks for a title
 
-### Requirement: Page language
-Every page SHALL be written in one language, English or Italian, chosen in the editor. New pages SHALL start with the
-installation's configured default language, English when none is configured. The language SHALL be changeable when
-editing.
-
-#### Scenario: Default language
-- **WHEN** the installation's default language is Italian and a user starts a new page
-- **THEN** the page's language is preset to Italian
-
-#### Scenario: Change language
-- **WHEN** a user changes an English page to Italian and saves
-- **THEN** the page is Italian from then on, and its body is unchanged
-
 ### Requirement: Formatted text in Markdown
 Page bodies SHALL be written in Markdown and shown formatted: headings, bold and italic, bulleted and numbered lists,
 checklists, tables, links and code. Raw HTML in a body SHALL NOT be rendered as HTML.
