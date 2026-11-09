@@ -7,7 +7,7 @@
 ## 2. Editor
 
 - [x] 2.1 Add the toolbar above `#body` in `edit.html`, load `editor.js` there only, and wire clicks, the address prompt and paste through `insertText` with the `setRangeText` fallback; verify a web test that the editor has the six buttons and the script, and `make check` green
-- [ ] 2.2 In a browser, at 390px and 1280px: each button on a selection, on nothing selected and on several lines; the link prompt with and without scheme and cancelled; pasting an address and ordinary text over a selection; Ctrl+Z after a button; buttons still working after changing type on a new page; verify every step behaves as the spec says and nothing overflows sideways
+- [x] 2.2 In a browser, at 390px and 1280px: each button on a selection, on nothing selected and on several lines; the link prompt with and without scheme and cancelled; pasting an address and ordinary text over a selection; Ctrl+Z after a button; buttons still working after changing type on a new page; verify every step behaves as the spec says and nothing overflows sideways
 
 ## Workflow follow-up
 

@@ -11,7 +11,7 @@
 
 ## 3. Integration
 
-- [ ] 3.1 With `make check` green, add, increase, decrease, open and undo decimal quantities in the browser at 390px and 1280px, typing the quantity with a comma and with a dot; verify every step behaves as the spec says and the home page's "Expiring" box shows the decimal quantity
+- [x] 3.1 With `make check` green, add, increase, decrease, open and undo decimal quantities in the browser at 390px and 1280px, typing the quantity with a comma and with a dot; verify every step behaves as the spec says and the home page's "Expiring" box shows the decimal quantity
 
 ## Workflow follow-up
 
