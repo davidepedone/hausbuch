@@ -19,17 +19,23 @@ type Section string
 const (
 	Medicines Section = "medicines"
 	Pantry    Section = "pantry"
+	Supplies  Section = "supplies"
 )
 
 // Sections lists every section, in the order they are shown.
-var Sections = []Section{Medicines, Pantry}
+var Sections = []Section{Medicines, Pantry, Supplies}
 
 // Label is the section's name as shown to users.
 func (s Section) Label() string {
-	if s == Medicines {
+	switch s {
+	case Medicines:
 		return "Medicines"
+	case Pantry:
+		return "Pantry"
+	case Supplies:
+		return "Supplies"
 	}
-	return "Pantry"
+	return string(s)
 }
 
 var (
@@ -128,7 +134,7 @@ type Store struct {
 }
 
 // DefaultLead returns each section's lead time in days when none is configured.
-func DefaultLead() map[Section]int { return map[Section]int{Medicines: 30, Pantry: 7} }
+func DefaultLead() map[Section]int { return map[Section]int{Medicines: 30, Pantry: 7, Supplies: 7} }
 
 // NewStore returns a Store on db using the real clock and the default lead times.
 func NewStore(db *sql.DB) *Store {

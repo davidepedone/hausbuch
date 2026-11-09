@@ -120,6 +120,17 @@ func TestSectionsAreSeparate(t *testing.T) {
 	}
 }
 
+func TestSuppliesKeptApartFromFood(t *testing.T) {
+	f := newFixture(t)
+	f.add(Supplies, Values{Name: "Dishwasher tablets", Quantity: 1 * One})
+	if items := f.list(Supplies); len(items) != 1 || items[0].Name != "Dishwasher tablets" {
+		t.Errorf("supplies: %v", items)
+	}
+	if items := f.list(Pantry); len(items) != 0 {
+		t.Errorf("pantry: %v", items)
+	}
+}
+
 func TestNewItem(t *testing.T) {
 	f := newFixture(t)
 	id := f.add(Pantry, Values{Name: " Passata ", Quantity: 3 * One, Unit: "bottles", Location: "Pantry, top shelf",
@@ -377,6 +388,8 @@ func TestStates(t *testing.T) {
 		{"nothing to expire", Pantry, Values{OpenedDays: 4}, Fine},
 		{"default medicines lead time", Medicines, Values{ExpiresOn: day(2026, 11, 26)}, Expiring},
 		{"default pantry lead time", Pantry, Values{ExpiresOn: day(2026, 11, 26)}, Fine},
+		{"default supplies lead time", Supplies, Values{ExpiresOn: day(2026, 11, 13)}, Expiring},
+		{"beyond the default supplies lead time", Supplies, Values{ExpiresOn: day(2026, 11, 14)}, Fine},
 	} {
 		c.v.Name, c.v.Quantity = c.name, One
 		if got := f.get(c.section, f.add(c.section, c.v)).State; got != c.want {

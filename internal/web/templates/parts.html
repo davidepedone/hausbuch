@@ -27,8 +27,10 @@
 </label>
 {{end}}
 
-{{/* sectionIcon draws a section's icon like typeIcon does: a capsule for medicines, a jar for the pantry. */}}
+{{/* sectionIcon draws a section's icon like typeIcon does: a capsule for medicines, a jar for the pantry, a spray
+bottle for supplies. */}}
 {{define "sectionIcon"}}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-full" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 {{- if eq . "medicines"}}<path d="M10.5 20.5a5 5 0 0 1-7-7l10-10a5 5 0 0 1 7 7z"/><path d="M8.5 8.5l7 7"/>
 {{- else if eq . "pantry"}}<path d="M8 3h8v3H8z"/><path d="M7 6h10a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1z"/><path d="M9 12h6"/>
+{{- else if eq . "supplies"}}<path d="M7 3h7v4H7z"/><path d="M14 5h3"/><path d="M20 2h.01M21 5h.01M20 8h.01"/><path d="M8 7v2l-2 3v8a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-8l-2-3V7"/>
 {{- end}}</svg>{{end}}
