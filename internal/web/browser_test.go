@@ -19,7 +19,10 @@ func inChrome(t *testing.T, a *testApp, h http.Handler, steps func(url string) c
 	a.addUser("anna", "Anna", "secret123")
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	ctx, cancel := chromedp.NewExecAllocator(context.Background(), chromedp.DefaultExecAllocatorOptions[:]...)
+	// Without its sandbox, which Ubuntu 24.04's AppArmor rules keep Chrome from setting up; it only opens the test
+	// server's pages.
+	ctx, cancel := chromedp.NewExecAllocator(context.Background(),
+		append(chromedp.DefaultExecAllocatorOptions[:], chromedp.NoSandbox)...)
 	defer cancel()
 	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
