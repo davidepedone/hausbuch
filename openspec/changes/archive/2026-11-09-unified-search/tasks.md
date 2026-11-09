@@ -14,7 +14,7 @@
 
 ## 3. Integration
 
-- [ ] 3.1 With `make check` green, in the browser at 390px and 1280px: type a part of a stock name and of a page title with different case and accents and watch the panel; clear the field with its ✕, press Escape, tap outside; confirm a search with Enter; search a word found nowhere; follow a page and a stock result from the panel; verify every step behaves as the spec says and nothing overflows sideways
+- [x] 3.1 With `make check` green, in the browser at 390px and 1280px: type a part of a stock name and of a page title with different case and accents and watch the panel; clear the field with its ✕, press Escape, tap outside; confirm a search with Enter; search a word found nowhere; follow a page and a stock result from the panel; verify every step behaves as the spec says and nothing overflows sideways
 
 ## Workflow follow-up
 
