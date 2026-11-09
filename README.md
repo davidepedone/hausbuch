@@ -26,6 +26,9 @@ Releases are versioned by date, `YYYY.MM.N` (the `N`th release of that month), a
 Each release also has `YYYY.MM.N-amd64` and `YYYY.MM.N-arm64` tags, the image of one platform: use the tags above
 instead, which pick the right one.
 
+The footer of every page shows the running release, with links to its release notes and to report a problem; an image
+built other than by `scripts/release.sh` (which passes `--build-arg VERSION=…`) shows `dev`.
+
 The container runs as the unprivileged user `65532`. With a host directory, as in `docker-compose.yml`, that
 directory must be writable by that user: `chown 65532:65532 ./data`. With a named volume instead, Docker gives it the
 right owner.

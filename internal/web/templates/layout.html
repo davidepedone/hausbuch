@@ -46,6 +46,14 @@
   <main class="mx-auto max-w-3xl px-4 py-6">
     {{template "content" .}}
   </main>
+  {{if .User}}
+  {{/* Plain links: an app added to a phone's home screen opens them in a browser view over itself. */}}
+  <footer class="mx-auto flex max-w-3xl flex-wrap gap-x-4 gap-y-1 px-4 pb-6 text-sm text-stone-500">
+    <span>hausbuch {{.Version}}</span>
+    <a href="{{releaseURL .Version}}" class="underline hover:text-stone-900">What's new</a>
+    <a href="{{reportURL}}" class="underline hover:text-stone-900">Report a problem</a>
+  </footer>
+  {{end}}
 </body>
 </html>
 {{end}}

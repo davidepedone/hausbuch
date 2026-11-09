@@ -34,12 +34,18 @@ func newApp(t *testing.T) *testApp {
 // newAppIn starts the app with new pages defaulting to language.
 func newAppIn(t *testing.T, language string) *testApp {
 	t.Helper()
+	return newAppWith(t, language, "dev")
+}
+
+// newAppWith starts the app with new pages defaulting to language, running as version.
+func newAppWith(t *testing.T, language, version string) *testApp {
+	t.Helper()
 	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	users, pages, items := user.NewStore(database), page.NewStore(database), stock.NewStore(database)
-	srv := httptest.NewServer(NewHandler(users, pages, items, language))
+	srv := httptest.NewServer(NewHandler(users, pages, items, language, version))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = database.Close()
