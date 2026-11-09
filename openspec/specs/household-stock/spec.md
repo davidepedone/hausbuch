@@ -2,14 +2,15 @@
 
 ## Purpose
 
-Keeps track of the medicines and the food the household has at home: what, how much, where it is kept and when it
-expires, so that anyone can check it and keep it up to date.
+Keeps track of the medicines, the food and the household supplies the household has at home: what, how much, where
+it is kept and when it expires, so that anyone can check it and keep it up to date.
 
 ## Requirements
 
-### Requirement: Medicines and Pantry sections
-The system SHALL have two sections, Medicines and Pantry, each listing its own items. Items SHALL be listed by name,
-and rows with the same name SHALL be shown together, ordered by effective expiry date, rows without one last.
+### Requirement: Stock sections
+The system SHALL have three sections, Medicines, Pantry and Supplies, each listing its own items and each reached from
+a tile of its own on the home page. Items SHALL be listed by name, and rows with the same name SHALL be shown together,
+ordered by effective expiry date, rows without one last.
 
 #### Scenario: Items listed by name
 - **WHEN** the pantry holds "Rice", "Passata" with two expiry dates, and "Salt" without one
@@ -19,6 +20,14 @@ and rows with the same name SHALL be shown together, ordered by effective expiry
 #### Scenario: Sections are separate
 - **WHEN** a user adds an item to Medicines
 - **THEN** it appears in Medicines and not in Pantry
+
+#### Scenario: Supplies kept apart from food
+- **WHEN** a user adds "Dishwasher tablets" to Supplies
+- **THEN** it appears in Supplies and not in Pantry
+
+#### Scenario: Sections on the home page
+- **WHEN** a user opens the home page
+- **THEN** it shows a tile for Medicines, one for Pantry and one for Supplies, each leading to its section
 
 ### Requirement: Add an item
 Any signed-in user SHALL be able to add an item to a section with a name, a quantity above 0 with at most one decimal,
