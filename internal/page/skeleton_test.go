@@ -17,29 +17,17 @@ func headings(md string) []string {
 }
 
 func TestSkeletonHeadings(t *testing.T) {
-	want := map[Type]map[string][]string{
-		Recipe: {
-			"en": {"Servings", "Time", "Ingredients", "Steps", "Notes"},
-			"it": {"Porzioni", "Tempo", "Ingredienti", "Procedimento", "Note"},
-		},
-		HowTo: {
-			"en": {"When", "What you need", "Steps", "Notes"},
-			"it": {"Quando", "Cosa serve", "Procedimento", "Note"},
-		},
-		WhereIsIt: {
-			"en": {"Location", "How to find it", "Notes"},
-			"it": {"Dove si trova", "Come trovarlo", "Note"},
-		},
+	want := map[Type][]string{
+		Recipe:    {"Servings", "Time", "Ingredients", "Steps", "Notes"},
+		HowTo:     {"When", "What you need", "Steps", "Notes"},
+		WhereIsIt: {"Location", "How to find it", "Notes"},
 	}
 	for _, typ := range Types {
-		for _, lang := range Languages {
-			got := headings(Skeleton(typ, lang))
-			if !slices.Equal(got, want[typ][lang]) {
-				t.Errorf("%s in %s: headings %q, want %q", typ, lang, got, want[typ][lang])
-			}
+		if got := headings(Skeleton(typ)); !slices.Equal(got, want[typ]) {
+			t.Errorf("%s: headings %q, want %q", typ, got, want[typ])
 		}
 	}
-	if s := Skeleton(Blank, "en") + Skeleton(Blank, "it"); s != "" {
+	if s := Skeleton(Blank); s != "" {
 		t.Errorf("Blank skeleton = %q, want empty", s)
 	}
 }

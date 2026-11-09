@@ -27,13 +27,12 @@ var files embed.FS
 const sessionCookie = "hausbuch_session"
 
 type server struct {
-	users           *user.Store
-	pages           *page.Store
-	stock           *stock.Store
-	defaultLanguage string
-	version         string
-	templates       map[string]*template.Template
-	editors         *editors
+	users     *user.Store
+	pages     *page.Store
+	stock     *stock.Store
+	version   string
+	templates map[string]*template.Template
+	editors   *editors
 }
 
 // view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
@@ -60,7 +59,6 @@ var funcs = template.FuncMap{
 	"date":       func(t time.Time) string { return t.Local().Format("2 Jan 2006, 15:04") },
 	"names":      joinNames,
 	"day":        func(t time.Time) string { return t.Local().Format("2 Jan 2006") },
-	"language":   page.LanguageName,
 	"newPageURL": newPageURL,
 	"pageURL":    pageURL,
 	"types":      func() []page.Type { return page.Types },
@@ -80,9 +78,9 @@ var funcs = template.FuncMap{
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
-// check requires a session. New pages start in defaultLanguage; version is the running release, or "dev".
-func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, defaultLanguage, version string) http.Handler {
-	s := &server{users: users, pages: pages, stock: items, defaultLanguage: defaultLanguage, version: version,
+// check requires a session; version is the running release, or "dev".
+func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, version string) http.Handler {
+	s := &server{users: users, pages: pages, stock: items, version: version,
 		templates: map[string]*template.Template{},
 		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",

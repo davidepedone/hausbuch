@@ -5,7 +5,6 @@
 <p class="mb-4 text-sm text-stone-500">Lines marked + are only in the current version, lines marked − only in revision {{.Revision.Number}}.</p>
 {{if ne .Revision.Title .Page.Title}}<p class="mb-2 text-sm">Title: <del>{{.Revision.Title}}</del> → {{.Page.Title}}</p>{{end}}
 {{if ne .Revision.Type .Page.Type}}<p class="mb-2 text-sm">Type: <del>{{.Revision.Type.Label}}</del> → {{.Page.Type.Label}}</p>{{end}}
-{{if ne .Revision.Language .Page.Language}}<p class="mb-2 text-sm">Language: <del>{{language .Revision.Language}}</del> → {{language .Page.Language}}</p>{{end}}
 {{template "diff" .Changes}}
 <form method="post" action="{{pageURL .Page.ID}}/revisions/{{.Revision.Number}}/restore" class="mt-4">
   <button class="rounded border border-stone-300 px-3 py-2 text-sm hover:bg-stone-100">Restore revision {{.Revision.Number}}</button>

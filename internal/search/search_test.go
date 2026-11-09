@@ -42,7 +42,8 @@ func TestWords(t *testing.T) {
 }
 
 func TestStems(t *testing.T) {
-	if got, want := Stems("L'irrigazione parte", "it"), "l irrig part"; got != want {
+	// "irrigazione" stems to "irrigazion" in English and "irrig" in Italian; "parte" to "part" in both.
+	if got, want := Stems("L'irrigazione parte"), "l irrigazion irrig part"; got != want {
 		t.Errorf("Stems = %q, want %q", got, want)
 	}
 }
@@ -66,7 +67,7 @@ func TestExcerpt(t *testing.T) {
 	body := "# Coffee machine\n\nThe water tank is behind the lid, under the shelf in the kitchen. " +
 		"Descaling every three months keeps the machine working; use the descaler kept in the cupboard under the sink, " +
 		"never vinegar."
-	got := MakeExcerpt(body, "en", "descale")
+	got := MakeExcerpt(body, "descale")
 	want := Excerpt{
 		Before: "…tank is behind the lid, under the shelf in the kitchen. ",
 		Match:  "Descaling",
@@ -78,14 +79,14 @@ func TestExcerpt(t *testing.T) {
 }
 
 func TestExcerptInItalian(t *testing.T) {
-	got := MakeExcerpt("L'irrigazione parte ad aprile.", "it", "irrigare")
+	got := MakeExcerpt("L'irrigazione parte ad aprile.", "irrigare")
 	if want := (Excerpt{Before: "L'", Match: "irrigazione", After: " parte ad aprile."}); got != want {
 		t.Errorf("MakeExcerpt = %#v, want %#v", got, want)
 	}
 }
 
 func TestExcerptWithoutMatch(t *testing.T) {
-	got := MakeExcerpt("\n  Short body\nin two lines.", "en", "irrigation")
+	got := MakeExcerpt("\n  Short body\nin two lines.", "irrigation")
 	if want := (Excerpt{After: "Short body in two lines."}); got != want {
 		t.Errorf("MakeExcerpt = %#v, want %#v", got, want)
 	}

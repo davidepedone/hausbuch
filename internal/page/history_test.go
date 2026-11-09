@@ -48,11 +48,10 @@ func TestSaveWithoutChanges(t *testing.T) {
 	if revs := f.revisions(id); len(revs) != 1 {
 		t.Errorf("%d revisions after a save without changes", len(revs))
 	}
-	// Each of title, type, language and body is a change.
+	// Each of title, type and body is a change.
 	for _, change := range []func(*Content){
 		func(c *Content) { c.Title = "pasta" },
 		func(c *Content) { c.Type = Recipe },
-		func(c *Content) { c.Language = "it" },
 		func(c *Content) { c.Body += "\n" },
 	} {
 		p := f.get(id)
@@ -61,8 +60,8 @@ func TestSaveWithoutChanges(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if revs := f.revisions(id); len(revs) != 5 {
-		t.Errorf("%d revisions after four changes, want 5", len(revs))
+	if revs := f.revisions(id); len(revs) != 4 {
+		t.Errorf("%d revisions after three changes, want 4", len(revs))
 	}
 }
 
@@ -118,7 +117,7 @@ func TestConflictNamesEveryoneWhoSaved(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	err := f.pages.Update(ctx, id, f.marco.ID, 1, Content{Title: "Pasta", Type: Blank, Language: "en", Body: "x"})
+	err := f.pages.Update(ctx, id, f.marco.ID, 1, Content{Title: "Pasta", Type: Blank, Body: "x"})
 	var conflict *ConflictError
 	if !errors.As(err, &conflict) || !slices.Equal(conflict.By, []string{"Anna", "Paolo"}) {
 		t.Errorf("err = %v (%+v)", err, conflict)

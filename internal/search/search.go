@@ -66,13 +66,18 @@ func Stem(word, lang string) string {
 	return env.Current()
 }
 
-// Stems returns the stems of the words of text in the language, separated by spaces: what the index holds.
-func Stems(text, lang string) string {
-	words := Words(text)
-	for i, w := range words {
-		words[i] = Stem(w, lang)
+// Stems returns the stems of the words of text, separated by spaces: what the index holds. Each word gives its English
+// stem and, when it differs, its Italian one, since a page may be written in either.
+func Stems(text string) string {
+	var stems []string
+	for _, w := range Words(text) {
+		en, it := Stem(w, "en"), Stem(w, "it")
+		stems = append(stems, en)
+		if it != en {
+			stems = append(stems, it)
+		}
 	}
-	return strings.Join(words, " ")
+	return strings.Join(stems, " ")
 }
 
 // Query returns the full-text query for searched text: every word required, each matching its English or its Italian
@@ -104,16 +109,17 @@ const (
 	excerptAfter  = 100
 )
 
-// MakeExcerpt returns the excerpt of text, written in lang, for the searched words: around the first word of text
-// sharing a stem with one of them, or the start of text when none does (a page matching by its title).
-func MakeExcerpt(text, lang, searched string) Excerpt {
+// MakeExcerpt returns the excerpt of text for the searched words: around the first word of text sharing an English or
+// Italian stem with one of them, or the start of text when none does (a page matching by its title).
+func MakeExcerpt(text, searched string) Excerpt {
 	stems := map[string]bool{}
 	for _, w := range Words(searched) {
 		stems[Stem(w, "en")] = true
 		stems[Stem(w, "it")] = true
 	}
 	for _, s := range spans(text) {
-		if stems[Stem(strings.ToLower(text[s.start:s.end]), lang)] {
+		w := strings.ToLower(text[s.start:s.end])
+		if stems[Stem(w, "en")] || stems[Stem(w, "it")] {
 			return Excerpt{
 				Before: textBefore(text, s.start),
 				Match:  text[s.start:s.end],

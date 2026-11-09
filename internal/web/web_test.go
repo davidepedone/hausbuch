@@ -28,24 +28,18 @@ type testApp struct {
 }
 
 func newApp(t *testing.T) *testApp {
-	return newAppIn(t, "en")
+	return newAppAt(t, "dev")
 }
 
-// newAppIn starts the app with new pages defaulting to language.
-func newAppIn(t *testing.T, language string) *testApp {
-	t.Helper()
-	return newAppWith(t, language, "dev")
-}
-
-// newAppWith starts the app with new pages defaulting to language, running as version.
-func newAppWith(t *testing.T, language, version string) *testApp {
+// newAppAt starts the app running as version.
+func newAppAt(t *testing.T, version string) *testApp {
 	t.Helper()
 	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	users, pages, items := user.NewStore(database), page.NewStore(database), stock.NewStore(database)
-	srv := httptest.NewServer(NewHandler(users, pages, items, language, version))
+	srv := httptest.NewServer(NewHandler(users, pages, items, version))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = database.Close()

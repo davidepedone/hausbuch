@@ -97,20 +97,20 @@ func residentWorks(t *testing.T, path, password string, wantPages ...string) {
 	if err := pages.Reindex(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, stock.NewStore(database), "en", "dev"))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, stock.NewStore(database), "dev"))
 	defer srv.Close()
 	c := newClient(t)
 	if status := signIn(t, c, srv, "anna", password); status != http.StatusSeeOther {
 		t.Fatalf("sign in: %d", status)
 	}
 
-	created := post(t, c, srv, "/pages", url.Values{"title": {"Boiler"}, "type": {"blank"}, "language": {"en"},
+	created := post(t, c, srv, "/pages", url.Values{"title": {"Boiler"}, "type": {"blank"},
 		"body": {"The manual is in the cellar."}})
 	if created.StatusCode != http.StatusSeeOther {
 		t.Fatalf("create: %s", created.Status)
 	}
 	path = created.Header.Get("Location")
-	edited := post(t, c, srv, path, url.Values{"title": {"Boiler"}, "type": {"blank"}, "language": {"en"},
+	edited := post(t, c, srv, path, url.Values{"title": {"Boiler"}, "type": {"blank"},
 		"body": {"The manual is in the drawer."}, "revision": {"1"}})
 	if edited.StatusCode != http.StatusSeeOther {
 		t.Fatalf("edit: %s", edited.Status)
@@ -167,7 +167,7 @@ func withData(t *testing.T) string {
 		t.Fatal(err)
 	}
 	if _, err := page.NewStore(database).Create(context.Background(), u.ID,
-		page.Content{Title: "Garden", Type: page.Blank, Language: "en", Body: "Water at dawn."}); err != nil {
+		page.Content{Title: "Garden", Type: page.Blank, Body: "Water at dawn."}); err != nil {
 		t.Fatal(err)
 	}
 	return path

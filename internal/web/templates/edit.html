@@ -38,26 +38,15 @@
       <input name="title" value="{{.Content.Title}}" required {{if not .Content.Title}}autofocus{{end}}
              class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
-    <div class="flex gap-4">
-      {{/* On a new page, changing type or language swaps the skeleton in the body until the user writes. */}}
-      {{$swap := not .ID}}
-      <label class="block flex-1 sm:flex-none">
-        <span class="mb-1 block text-sm font-medium">Type</span>
-        <select name="type" class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base"
-                {{if $swap}}hx-post="/pages/skeleton" hx-include="closest form" hx-target="#body" hx-swap="outerHTML"{{end}}>
-          {{$type := .Content.Type}}
-          {{range types}}<option value="{{.}}"{{if eq . $type}} selected{{end}}>{{.Label}}</option>{{end}}
-        </select>
-      </label>
-      <label class="block flex-1 sm:flex-none">
-        <span class="mb-1 block text-sm font-medium">Language</span>
-        <select name="language" class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base"
-                {{if $swap}}hx-post="/pages/skeleton" hx-include="closest form" hx-target="#body" hx-swap="outerHTML"{{end}}>
-          {{$lang := .Content.Language}}
-          {{range .Languages}}<option value="{{.}}"{{if eq . $lang}} selected{{end}}>{{language .}}</option>{{end}}
-        </select>
-      </label>
-    </div>
+    {{/* On a new page, changing the type swaps the skeleton in the body until the user writes. */}}
+    <label class="block sm:flex-none">
+      <span class="mb-1 block text-sm font-medium">Type</span>
+      <select name="type" class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base"
+              {{if not .ID}}hx-post="/pages/skeleton" hx-include="closest form" hx-target="#body" hx-swap="outerHTML"{{end}}>
+        {{$type := .Content.Type}}
+        {{range types}}<option value="{{.}}"{{if eq . $type}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </label>
   </div>
   <div>
     <span id="body-label" class="mb-1 block text-sm font-medium">Text</span>
