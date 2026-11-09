@@ -3,8 +3,11 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/davidepedone/hausbuch/internal/stock"
 )
 
 func (b *browser) search(text string) string {
@@ -36,6 +39,7 @@ func TestSearchWithNoResults(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	b.create("Garden", "Mow the lawn.")
+	b.addItem(stock.Pantry, url.Values{"name": {"Boiler descaler"}})
 	html := b.search("  boiler manual ")
 	mustContain(t, html, "Nothing found for “boiler manual”.", `href="/pages/new?title=boiler&#43;manual"`)
 	if strings.Contains(html, `href="/pages/1"`) {
@@ -83,5 +87,53 @@ func TestSearchFieldOnEverySignedInScreen(t *testing.T) {
 	login := a.browser().get("/login")
 	if login.StatusCode != http.StatusOK || strings.Contains(login.body, `action="/search"`) {
 		t.Errorf("login page: %s, with a search field: %v", login.Status, strings.Contains(login.body, `action="/search"`))
+	}
+}
+
+func TestGroupedResults(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	path := b.create("Coffee machine", "Descale it.")
+	b.addItem(stock.Pantry, url.Values{"name": {"Coffee"}})
+	b.addItem(stock.Supplies, url.Values{"name": {"Coffee machine descaler"}})
+	html := b.search("coffee")
+	pages, pantry, supplies := strings.Index(html, ">Pages</h2>"), strings.Index(html, ">Pantry</h2>"), strings.Index(html, ">Supplies</h2>")
+	if pages < 0 || pages > pantry || pantry > supplies {
+		t.Errorf("groups out of order: %d %d %d\n%s", pages, pantry, supplies, html)
+	}
+	if strings.Contains(html, ">Medicines</h2>") || strings.Contains(html, "Nothing found") {
+		t.Errorf("empty group or no-results message:\n%s", html)
+	}
+	coffee, descaler := a.item(stock.Pantry, "Coffee"), a.item(stock.Supplies, "Coffee machine descaler")
+	mustContain(t, html, `href="`+path+`"`, `href="/pantry#item-`+strconv.FormatInt(coffee.ID, 10)+`"`,
+		`href="/supplies#item-`+strconv.FormatInt(descaler.ID, 10)+`"`)
+	if strings.Index(html, `href="/pantry#item-`) > strings.Index(html, `href="/supplies#item-`) {
+		t.Error("pantry row not before supplies row")
+	}
+}
+
+func TestStockResult(t *testing.T) {
+	a := newApp(t)
+	a.stockClock()
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "quantity": {"3"}, "unit": {"bottles"}, "category": {"Long-life"},
+		"location": {"Pantry, top shelf"}, "expires_on": {"2027-09-30"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Milk"}, "expires_on": {"2026-11-07"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Yogurt"}, "expires_on": {"2026-11-05"}})
+	passata := a.item(stock.Pantry, "Passata")
+	html := b.search("PASS")
+	mustContain(t, html, `href="/pantry#item-`+strconv.FormatInt(passata.ID, 10)+`"`, ">Passata<",
+		"3 bottles · Long-life · Pantry, top shelf", "Expires 30 Sep 2027")
+	mustContain(t, b.search("milk"), `text-amber-900">expires tomorrow · 7 Nov 2026<`)
+	mustContain(t, b.search("yogurt"), `text-red-800">expired · 5 Nov 2026<`)
+}
+
+func TestSearchLabel(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	html := b.view("/")
+	mustContain(t, html, `placeholder="Search" aria-label="Search"`)
+	if strings.Contains(html, "Search pages") {
+		t.Error("still labelled Search pages")
 	}
 }

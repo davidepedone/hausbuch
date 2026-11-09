@@ -1,9 +1,11 @@
 {{define "content"}}
 <h1 class="mb-4 text-xl font-display font-semibold">Search</h1>
 {{with .Data}}
-{{if .Results}}
-<ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
-  {{range .Results}}
+{{if or .Results .Stock}}
+{{with .Results}}
+<h2 class="mb-2 font-display text-lg font-semibold">Pages</h2>
+<ul class="mb-6 divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+  {{range .}}
   <li>
     <a href="{{pageURL .ID}}" class="block px-4 py-3 hover:bg-stone-50">
       <span class="block break-words font-medium">{{.Title}}</span>
@@ -13,6 +15,23 @@
   </li>
   {{end}}
 </ul>
+{{end}}
+{{range .Stock}}
+<h2 class="mb-2 font-display text-lg font-semibold">{{.Section.Label}}</h2>
+<ul class="mb-6 divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+  {{range .Items}}
+  <li>
+    <a href="/{{.Section}}#item-{{.ID}}" class="block px-4 py-3 hover:bg-stone-50">
+      <span class="block break-words font-medium">{{.Name}}</span>
+      <span class="block break-words text-sm text-stone-500">{{.Quantity}}{{with .Unit}} {{.}}{{end}}{{with .Category}} · {{.}}{{end}}{{with .Location}} · {{.}}{{end}}</span>
+      {{if expired .State}}<span class="block text-sm font-semibold text-red-800">{{expiryNote .}} · {{calendar .Expiry}}</span>
+      {{else if expiring .State}}<span class="block text-sm text-amber-900">{{expiryNote .}} · {{calendar .Expiry}}</span>
+      {{else if not .Expiry.IsZero}}<span class="block text-sm text-stone-500">Expires {{calendar .Expiry}}</span>{{end}}
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{end}}
 {{else if .Query}}
 <p class="text-stone-500">Nothing found for “{{.Query}}”.</p>
 <p class="mt-4"><a href="{{newPageURL .Query}}" class="inline-block rounded bg-sage-700 px-3 py-2 text-sm font-medium text-white hover:bg-sage-800">Create the page “{{.Query}}”</a></p>
