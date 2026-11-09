@@ -41,11 +41,12 @@ func (s Section) Label() string {
 }
 
 var (
-	ErrNotFound   = errors.New("no such item")
-	ErrEmptyName  = errors.New("an item needs a name")
-	ErrQuantity   = errors.New("the quantity must be above 0, with at most one decimal")
-	ErrSection    = errors.New("no such section")
-	ErrOpenedDays = errors.New("the days an item lasts once opened must be a whole number of at least 1")
+	ErrNotFound     = errors.New("no such item")
+	ErrEmptyName    = errors.New("an item needs a name")
+	ErrQuantity     = errors.New("the quantity must be above 0, with at most one decimal")
+	ErrSection      = errors.New("no such section")
+	ErrSameLocation = errors.New("the item is already kept there")
+	ErrOpenedDays   = errors.New("the days an item lasts once opened must be a whole number of at least 1")
 )
 
 // Quantity is an amount in tenths, so that it can have one decimal: 15 is 1.5.
@@ -175,8 +176,8 @@ func check(v *Values) error {
 	return nil
 }
 
-// Add adds v to the section, by the user, and returns the id of its row: an unopened row with the same name and
-// expiry date gets the quantity added, otherwise a new row is made.
+// Add adds v to the section, by the user, and returns the id of its row: an unopened row with the same name, location
+// and expiry date gets the quantity added, otherwise a new row is made.
 func (s *Store) Add(ctx context.Context, section Section, userID int64, v Values) (int64, error) {
 	return s.add(ctx, section, userID, v, userID, s.Now())
 }
@@ -216,8 +217,8 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 }
 
 // Update replaces the values of a row of the section, changed by the user, and keeps it in the section to, moving it
-// there if it is another one. Moved unopened, it is added to an unopened row of to with the same name and expiry date,
-// as Add does; the section it left forgets its product unless rows with that name remain. It returns the id the row
+// there if it is another one. Moved unopened, it is added to an unopened row of to with the same name, location and
+// expiry date, as Add does; the section it left forgets its product unless rows with that name remain. It returns the id the row
 // ends up with.
 func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v Values, to Section) (int64, error) {
 	if err := check(&v); err != nil {
@@ -291,26 +292,46 @@ func forget(ctx context.Context, tx *sql.Tx, section Section, key string) error 
 	return err
 }
 
-// mergeInto adds v's quantity to an unopened row of the section with v's name and expiry date, when v isn't opened and
-// there is one, remembering v's product; it returns that row's id and whether it did.
+// mergeInto adds v's quantity to an unopened row of the section with v's name, location and expiry date, when v isn't
+// opened and there is one, remembering v's product; it returns that row's id and whether it did.
 func mergeInto(ctx context.Context, tx *sql.Tx, section Section, userID, now int64, v Values) (int64, bool, error) {
 	if !v.OpenedOn.IsZero() {
 		return 0, false, nil
 	}
-	var id int64
-	err := tx.QueryRowContext(ctx, `
-		UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
-		WHERE id = (SELECT id FROM stock_item
-			WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
-		RETURNING id`,
-		v.Quantity, userID, now, section, nameKey(v.Name), date(v.ExpiresOn)).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, false, nil
+	id, err := matchingRow(ctx, tx, section, v)
+	if err != nil || id == 0 {
+		return 0, false, err
 	}
-	if err != nil {
+	if _, err := tx.ExecContext(ctx,
+		"UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ? WHERE id = ?",
+		v.Quantity, userID, now, id); err != nil {
 		return 0, false, err
 	}
 	return id, true, remember(ctx, tx, section, v)
+}
+
+// matchingRow returns the first unopened row of the section with v's name, location and expiry date, or 0. Locations
+// are compared in Go, since SQLite's lower only folds ASCII.
+func matchingRow(ctx context.Context, tx *sql.Tx, section Section, v Values) (int64, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, location FROM stock_item
+		WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id`,
+		section, nameKey(v.Name), date(v.ExpiresOn))
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var location string
+		if err := rows.Scan(&id, &location); err != nil {
+			return 0, err
+		}
+		if nameKey(location) == nameKey(v.Location) {
+			return id, nil
+		}
+	}
+	return 0, rows.Err()
 }
 
 // remember records v's product as the section's latest use of its name.
@@ -410,6 +431,71 @@ func (s *Store) Open(ctx context.Context, section Section, id, userID int64) err
 			FROM stock_item WHERE id = ?`, One, today, userID, now, userID, now, id)
 		return err
 	})
+}
+
+// Move takes quantity from a row of the section to another location, by the user: it is added to an unopened row kept
+// there with the same name and expiry date, as Add does; otherwise the whole of the row changes location, and a part
+// of it is split off into a row of its own. It returns the id of the row that received the quantity.
+func (s *Store) Move(ctx context.Context, section Section, id, userID int64, quantity Quantity, location string) (int64, error) {
+	location = strings.TrimSpace(location)
+	now := s.Now().Unix()
+	var to int64
+	err := s.inTx(ctx, func(tx *sql.Tx) error {
+		it, err := s.scan(tx.QueryRowContext(ctx, selectItems+" WHERE i.id = ? AND i.section = ?", id, section))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		switch {
+		case quantity <= 0 || quantity > it.Quantity:
+			return ErrQuantity
+		case nameKey(location) == nameKey(it.Location):
+			return ErrSameLocation
+		}
+		v := it.Values
+		v.Quantity, v.Location = quantity, location
+		var merged bool
+		if to, merged, err = mergeInto(ctx, tx, section, userID, now, v); err != nil {
+			return err
+		}
+		whole := quantity == it.Quantity
+		switch {
+		case merged && whole:
+			_, err = tx.ExecContext(ctx, "DELETE FROM stock_item WHERE id = ?", id)
+			return err
+		case whole:
+			to = id
+			if _, err := tx.ExecContext(ctx,
+				"UPDATE stock_item SET location = ?, changed_by = ?, changed_at = ? WHERE id = ?",
+				location, userID, now, id); err != nil {
+				return err
+			}
+			return remember(ctx, tx, section, v)
+		}
+		if _, err := tx.ExecContext(ctx,
+			"UPDATE stock_item SET quantity_tenths = quantity_tenths - ?, changed_by = ?, changed_at = ? WHERE id = ?",
+			quantity, userID, now, id); err != nil {
+			return err
+		}
+		if merged {
+			return nil
+		}
+		res, err := tx.ExecContext(ctx, `
+			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
+				opened_on, opened_days, created_by, created_at, changed_by, changed_at)
+			SELECT section, name, name_key, ?, unit, category, ?, expires_on, opened_on, opened_days, ?, ?, ?, ?
+			FROM stock_item WHERE id = ?`, quantity, location, userID, now, userID, now, id)
+		if err != nil {
+			return err
+		}
+		if to, err = res.LastInsertId(); err != nil {
+			return err
+		}
+		return remember(ctx, tx, section, v)
+	})
+	return to, err
 }
 
 const selectItems = `

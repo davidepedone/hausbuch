@@ -1,0 +1,29 @@
+{{define "content"}}
+{{with .Data}}
+<p class="mb-1 text-sm"><a href="/{{.Item.Section}}#item-{{.Item.ID}}" class="text-sage-700 underline hover:text-sage-800">{{.Item.Section.Label}}</a></p>
+<h1 class="mb-1 break-words font-display text-xl font-semibold">Move {{.Item.Name}}</h1>
+<p class="mb-4 break-words text-sm text-stone-500">{{.Item.Quantity}}{{with .Item.Unit}} {{.}}{{end}}{{with .Item.Location}} in {{.}}{{end}}</p>
+<form method="post" action="{{itemURL .Item}}/move" class="space-y-4">
+  {{with .Error}}
+  <p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
+  {{end}}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Quantity</span>
+      <input name="quantity" value="{{.Quantity}}" required inputmode="decimal"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Move to</span>
+      <input name="location" value="{{.Location}}" list="locations" autocomplete="off"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+  </div>
+  <datalist id="locations">{{range .Locations}}<option value="{{.}}">{{end}}</datalist>
+  <div class="flex flex-wrap gap-2">
+    <button class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Move</button>
+    <a href="/{{.Item.Section}}#item-{{.Item.ID}}" class="rounded px-4 py-2 text-stone-600 hover:bg-stone-100">Cancel</a>
+  </div>
+</form>
+{{end}}
+{{end}}

@@ -19,6 +19,8 @@ func (s *server) routeStock(mux *http.ServeMux) {
 		mux.HandleFunc("POST "+base+"/items", func(w http.ResponseWriter, r *http.Request) { s.addItem(w, r, sec) })
 		mux.HandleFunc("GET "+base+"/items/{id}", func(w http.ResponseWriter, r *http.Request) { s.editItem(w, r, sec) })
 		mux.HandleFunc("POST "+base+"/items/{id}", func(w http.ResponseWriter, r *http.Request) { s.saveItem(w, r, sec) })
+		mux.HandleFunc("GET "+base+"/items/{id}/move", func(w http.ResponseWriter, r *http.Request) { s.moveForm(w, r, sec) })
+		mux.HandleFunc("POST "+base+"/items/{id}/move", func(w http.ResponseWriter, r *http.Request) { s.moveItem(w, r, sec) })
 		mux.HandleFunc("POST "+base+"/items/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
 			s.changeItem(w, r, sec)
 		})
@@ -233,6 +235,54 @@ func (s *server) saveItem(w http.ResponseWriter, r *http.Request, sec stock.Sect
 		return
 	}
 	http.Redirect(w, r, "/"+form.Section+"#item-"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+type moveData struct {
+	Item               stock.Item
+	Locations          []string
+	Quantity, Location string // as entered
+	Error              string
+}
+
+func (s *server) renderMove(w http.ResponseWriter, r *http.Request, status int, d moveData) {
+	var err error
+	if d.Locations, err = s.stock.Locations(r.Context(), d.Item.Section); err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.render(w, r, status, "move", d)
+}
+
+func (s *server) moveForm(w http.ResponseWriter, r *http.Request, sec stock.Section) {
+	if it, ok := s.itemFromPath(w, r, sec); ok {
+		s.renderMove(w, r, http.StatusOK, moveData{Item: it, Quantity: min(stock.One, it.Quantity).String()})
+	}
+}
+
+func (s *server) moveItem(w http.ResponseWriter, r *http.Request, sec stock.Section) {
+	it, ok := s.itemFromPath(w, r, sec)
+	if !ok {
+		return
+	}
+	d := moveData{Item: it, Quantity: r.PostFormValue("quantity"), Location: r.PostFormValue("location")}
+	quantity, err := stock.ParseQuantity(d.Quantity)
+	id := it.ID
+	if err == nil {
+		id, err = s.stock.Move(r.Context(), sec, it.ID, currentUser(r).ID, quantity, d.Location)
+	}
+	switch {
+	case errors.Is(err, stock.ErrQuantity):
+		d.Error = "The quantity must be above 0 and at most " + it.Quantity.String() + ", with at most one decimal."
+	case errors.Is(err, stock.ErrSameLocation):
+		d.Error = "It's already kept there."
+	case err != nil:
+		s.fail(w, err)
+		return
+	default:
+		http.Redirect(w, r, "/"+string(sec)+"#item-"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+		return
+	}
+	s.renderMove(w, r, http.StatusBadRequest, d)
 }
 
 // changeItem applies one of a row's buttons: decrease, increase, open or remove.

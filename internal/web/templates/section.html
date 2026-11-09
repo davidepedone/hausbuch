@@ -144,6 +144,7 @@
     </form>
     {{end}}
     <a href="{{$url}}" class="text-sage-700 underline hover:text-sage-800">Edit</a>
+    <a href="{{$url}}/move" class="text-sage-700 underline hover:text-sage-800">Move</a>
     <form method="post" action="{{$url}}/remove" hx-post="{{$url}}/remove" hx-target="#items" hx-swap="outerHTML">
       <button class="text-stone-500 underline hover:text-stone-900">Remove</button>
     </form>

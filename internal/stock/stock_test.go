@@ -216,6 +216,36 @@ func TestSameProductWithoutExpiryMerges(t *testing.T) {
 	}
 }
 
+func TestSameProductDifferentLocation(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 2 * One, Location: "Cellar", ExpiresOn: day(2027, 5, 31)})
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: "Kitchen", ExpiresOn: day(2027, 5, 31)})
+	items := f.list(Pantry)
+	if len(items) != 2 || items[0].Location != "Cellar" || items[0].Quantity != 2*One ||
+		items[1].Location != "Kitchen" || items[1].Quantity != 1*One {
+		t.Errorf("got %+v", items)
+	}
+}
+
+func TestSameLocationDifferentCase(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 2 * One, Location: "Cellar", ExpiresOn: day(2027, 5, 31)})
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: " cellar", ExpiresOn: day(2027, 5, 31)})
+	items := f.list(Pantry)
+	if len(items) != 1 || items[0].Quantity != 3*One || items[0].Location != "Cellar" {
+		t.Errorf("got %+v", items)
+	}
+}
+
+func TestSameLocationBeyondASCII(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: "Ärmelkanal"})
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: "ärmelkanal"})
+	if items := f.list(Pantry); len(items) != 1 || items[0].Quantity != 2*One {
+		t.Errorf("got %+v", items)
+	}
+}
+
 func TestOpenedRowStaysApart(t *testing.T) {
 	f := newFixture(t)
 	opened := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
@@ -690,9 +720,9 @@ func TestMoveToTheRightSection(t *testing.T) {
 func TestMoveOntoTheSameProduct(t *testing.T) {
 	f := newFixture(t)
 	target := f.add(Supplies, Values{Name: "Descaler", Quantity: 1 * One, Location: "Under the sink", ExpiresOn: day(2026, 11, 14)})
-	id := f.add(Pantry, Values{Name: "descaler", Quantity: 2 * One, Location: "Pantry", ExpiresOn: day(2026, 11, 14)})
+	id := f.add(Pantry, Values{Name: "descaler", Quantity: 2 * One, Location: "under the sink", ExpiresOn: day(2026, 11, 14)})
 	got, err := f.stock.Update(ctx, Pantry, id, f.anna.ID,
-		Values{Name: "descaler", Quantity: 2 * One, Location: "Pantry", ExpiresOn: day(2026, 11, 14)}, Supplies)
+		Values{Name: "descaler", Quantity: 2 * One, Location: "under the sink", ExpiresOn: day(2026, 11, 14)}, Supplies)
 	if err != nil || got != target {
 		t.Fatalf("move: %d, %v, want %d", got, err, target)
 	}
@@ -701,6 +731,19 @@ func TestMoveOntoTheSameProduct(t *testing.T) {
 	}
 	items := f.list(Supplies)
 	if len(items) != 1 || items[0].ID != target || items[0].Quantity != 3*One || items[0].Location != "Under the sink" {
+		t.Errorf("supplies: %+v", items)
+	}
+}
+
+func TestDifferentLocationMovesApart(t *testing.T) {
+	f := newFixture(t)
+	f.add(Supplies, Values{Name: "Descaler", Quantity: 1 * One, Location: "Laundry", ExpiresOn: day(2026, 11, 14)})
+	v := Values{Name: "Descaler", Quantity: 1 * One, Location: "Pantry", ExpiresOn: day(2026, 11, 14)}
+	id := f.add(Pantry, v)
+	if got, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, v, Supplies); err != nil || got != id {
+		t.Fatalf("move: %d, %v", got, err)
+	}
+	if items := f.list(Supplies); len(items) != 2 {
 		t.Errorf("supplies: %+v", items)
 	}
 }
@@ -801,5 +844,146 @@ func TestEditingInPlaceKeepsTheProduct(t *testing.T) {
 	}
 	if _, found, _ := f.stock.Product(ctx, Pantry, "Rice"); !found {
 		t.Error("forgotten after an edit")
+	}
+}
+
+func (f *fixture) move(id int64, quantity Quantity, location string) int64 {
+	f.t.Helper()
+	to, err := f.stock.Move(ctx, Pantry, id, f.marco.ID, quantity, location)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return to
+}
+
+// locations returns each listed row as its location and quantity.
+func locations(items []Item) []string {
+	var list []string
+	for _, it := range items {
+		list = append(list, it.Location+" "+it.Quantity.String())
+	}
+	return list
+}
+
+func TestMoveSome(t *testing.T) {
+	f := newFixture(t)
+	v := Values{Name: "Pasta", Quantity: 3 * One, Unit: "packs", Category: "Long-life", Location: "Cellar",
+		ExpiresOn: day(2027, 5, 31), OpenedDays: 3}
+	id := f.add(Pantry, v)
+	f.now = f.now.Add(time.Hour)
+	to := f.move(id, 2*One, " Kitchen ")
+	if to == id {
+		t.Fatal("no new row")
+	}
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Cellar 1", "Kitchen 2"}) {
+		t.Fatalf("rows: %v", got)
+	}
+	want := v
+	want.Quantity, want.Location = 2*One, "Kitchen"
+	if it := f.get(Pantry, to); it.Values != want || it.ChangedBy != "marco" || !it.ChangedAt.Equal(f.now) {
+		t.Errorf("moved: %+v", it)
+	}
+	if it := f.get(Pantry, id); it.ChangedBy != "marco" || !it.ChangedAt.Equal(f.now) {
+		t.Errorf("left: %+v", it)
+	}
+}
+
+func TestMovePartOntoTheSameProduct(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Pasta", Quantity: 3 * One, Location: "Cellar", ExpiresOn: day(2027, 5, 31)})
+	target := f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: "Kitchen", ExpiresOn: day(2027, 5, 31)})
+	if to := f.move(id, 2*One, "kitchen"); to != target {
+		t.Errorf("received by %d, want %d", to, target)
+	}
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Cellar 1", "Kitchen 3"}) {
+		t.Errorf("rows: %v", got)
+	}
+}
+
+func TestMoveAllOfIt(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Pasta", Quantity: 2 * One, Location: "Cellar"})
+	if to := f.move(id, 2*One, "Kitchen"); to != id {
+		t.Errorf("received by %d, want %d", to, id)
+	}
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Kitchen 2"}) {
+		t.Errorf("rows: %v", got)
+	}
+	if it := f.get(Pantry, id); it.CreatedBy != "anna" || it.ChangedBy != "marco" {
+		t.Errorf("row: %+v", it)
+	}
+}
+
+func TestMoveAllOfItOntoTheSameProduct(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Pasta", Quantity: 2 * One, Location: "Cellar", ExpiresOn: day(2027, 5, 31)})
+	target := f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One, Location: "Kitchen", ExpiresOn: day(2027, 5, 31)})
+	if to := f.move(id, 2*One, "Kitchen"); to != target {
+		t.Errorf("received by %d, want %d", to, target)
+	}
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Kitchen 3"}) {
+		t.Errorf("rows: %v", got)
+	}
+}
+
+func TestMoveADecimalQuantity(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Flour", Quantity: 15, Unit: "kg", Location: "Cellar"})
+	f.move(id, 5, "Kitchen")
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Cellar 1", "Kitchen 0.5"}) {
+		t.Errorf("rows: %v", got)
+	}
+}
+
+func TestOpenedPartMovesApart(t *testing.T) {
+	f := newFixture(t)
+	v := Values{Name: "Passata", Quantity: 1 * One, Location: "Kitchen", ExpiresOn: day(2027, 9, 30), OpenedDays: 4}
+	id := f.add(Pantry, v)
+	if err := f.stock.Open(ctx, Pantry, id, f.anna.ID); err != nil {
+		t.Fatal(err)
+	}
+	f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Fridge", ExpiresOn: day(2027, 9, 30)})
+	f.now = f.now.AddDate(0, 0, 1)
+	f.move(id, 1*One, "Fridge")
+	items := f.list(Pantry)
+	if got := locations(items); !slices.Equal(got, []string{"Fridge 1", "Fridge 1"}) {
+		t.Fatalf("rows: %v", got)
+	}
+	if it := f.get(Pantry, id); !it.OpenedOn.Equal(day(2026, 11, 6)) {
+		t.Errorf("opened on %v", it.OpenedOn)
+	}
+}
+
+func TestRememberedWhereItWent(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Pasta", Quantity: 3 * One, Location: "Cellar"})
+	f.move(id, 1*One, "Kitchen")
+	if p, found, err := f.stock.Product(ctx, Pantry, "Pasta"); err != nil || !found || p.Location != "Kitchen" {
+		t.Errorf("product %+v %v %v", p, found, err)
+	}
+}
+
+func TestMoveRefused(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Pasta", Quantity: 3 * One, Location: "Cellar"})
+	for _, c := range []struct {
+		quantity Quantity
+		location string
+		want     error
+	}{
+		{4 * One, "Kitchen", ErrQuantity},
+		{0, "Kitchen", ErrQuantity},
+		{-One, "Kitchen", ErrQuantity},
+		{1 * One, " cellar", ErrSameLocation},
+	} {
+		if _, err := f.stock.Move(ctx, Pantry, id, f.marco.ID, c.quantity, c.location); !errors.Is(err, c.want) {
+			t.Errorf("%v to %q: %v, want %v", c.quantity, c.location, err, c.want)
+		}
+	}
+	if got := locations(f.list(Pantry)); !slices.Equal(got, []string{"Cellar 3"}) {
+		t.Errorf("rows: %v", got)
+	}
+	if _, err := f.stock.Move(ctx, Medicines, id, f.marco.ID, One, "Kitchen"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("row of another section: %v", err)
 	}
 }
