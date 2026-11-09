@@ -9,9 +9,9 @@
     {{end}}
     <label class="block">
       <span class="mb-1 block text-sm font-medium">Name</span>
-      {{/* Choosing a name used before fills in where it was kept and how long it lasts once opened. */}}
-      <input name="name" value="{{.Form.Name}}" list="names" required autocomplete="off"
-             hx-get="/{{.Section}}/product" hx-trigger="change" hx-target="#product-fields" hx-swap="outerHTML"
+      {{/* Choosing a name used before fills in its category, where it was kept and how long it lasts once opened. */}}
+      <input name="name" value="{{.Form.Name}}" list="names" required autocomplete="off" data-product-name
+             hx-get="/{{.Section}}/product" hx-trigger="change" hx-swap="none"
              class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
     <datalist id="names">{{range .Names}}<option value="{{.}}">{{end}}</datalist>
@@ -38,6 +38,7 @@
   {{template "items" .}}
 </div>
 <script src="/static/listfilter.js" defer></script>
+<script src="/static/productfields.js" defer></script>
 {{end}}
 {{end}}
 

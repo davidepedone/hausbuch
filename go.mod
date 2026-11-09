@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/blevesearch/snowballstem v0.9.0
+	github.com/chromedp/chromedp v0.15.1
 	github.com/dop251/goja v0.0.0-20261014135309-2cb8274eed06
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/sergi/go-diff v1.4.0
@@ -16,9 +17,15 @@ require (
 )
 
 require (
+	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.11.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
