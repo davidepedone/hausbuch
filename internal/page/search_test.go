@@ -130,3 +130,41 @@ func sameIDs(a, b []int64) bool {
 	slices.Sort(b)
 	return slices.Equal(a, b)
 }
+
+func TestSearchPartOfATitle(t *testing.T) {
+	f := newFixture(t)
+	irrigation := f.createIn("en", "Irrigation", "Turn the tap.")
+	coffee := f.createIn("it", "Caffè con la moka", "Riempi la base.")
+	f.createIn("en", "Garden", "Mow the lawn.")
+	if got := f.search("irri"); !slices.Equal(got, []int64{irrigation}) {
+		t.Errorf("irri: %v, want Irrigation (%d)", got, irrigation)
+	}
+	if got := f.search("CAFFE MOK"); !slices.Equal(got, []int64{coffee}) {
+		t.Errorf("CAFFE MOK: %v, want Caffè con la moka (%d)", got, coffee)
+	}
+	if got := f.search("irri lawn"); len(got) != 0 {
+		t.Errorf("irri lawn: %v, want nothing", got)
+	}
+}
+
+func TestSearchPutsPartialTitleMatchesFirst(t *testing.T) {
+	f := newFixture(t)
+	body := f.createIn("en", "Garden", "Watering every evening.")
+	stem := f.createIn("en", "Watering", "Turn the tap.")
+	part := f.createIn("en", "Waterproof boots", "In the cellar.")
+	got := f.search("water")
+	if len(got) != 3 || got[2] != body || !slices.Contains(got[:2], stem) || !slices.Contains(got[:2], part) {
+		t.Errorf("water: %v, want %d and %d before %d", got, stem, part, body)
+	}
+}
+
+func TestSearchSkipsDeletedTitles(t *testing.T) {
+	f := newFixture(t)
+	id := f.createIn("en", "Irrigation", "Turn the tap.")
+	if err := f.pages.Delete(ctx, id, f.anna.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.search("irri"); len(got) != 0 {
+		t.Errorf("irri: %v, want nothing", got)
+	}
+}

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/davidepedone/hausbuch/internal/search"
 )
 
 // Section is a list of items kept apart from the others.
@@ -414,6 +416,28 @@ func (s *Store) List(ctx context.Context, section Section) ([]Item, error) {
 	}
 	slices.SortStableFunc(items, func(a, b Item) int {
 		return cmp.Or(strings.Compare(nameKey(a.Name), nameKey(b.Name)), compareExpiry(a, b))
+	})
+	return items, nil
+}
+
+// Search returns the rows of every section whose name contains each word of text, ignoring case and accents, in the
+// sections' order and within a section as List orders them.
+func (s *Store) Search(ctx context.Context, text string) ([]Item, error) {
+	words := search.Words(text)
+	if len(words) == 0 {
+		return nil, nil
+	}
+	items, err := s.query(ctx, " ORDER BY i.id")
+	if err != nil {
+		return nil, err
+	}
+	items = slices.DeleteFunc(items, func(it Item) bool {
+		name := search.Fold(it.Name)
+		return slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(name, search.Fold(w)) })
+	})
+	slices.SortStableFunc(items, func(a, b Item) int {
+		return cmp.Or(cmp.Compare(slices.Index(Sections, a.Section), slices.Index(Sections, b.Section)),
+			strings.Compare(nameKey(a.Name), nameKey(b.Name)), compareExpiry(a, b))
 	})
 	return items, nil
 }

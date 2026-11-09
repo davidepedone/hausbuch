@@ -9,6 +9,7 @@ import (
 	"github.com/blevesearch/snowballstem"
 	"github.com/blevesearch/snowballstem/english"
 	"github.com/blevesearch/snowballstem/italian"
+	"golang.org/x/text/unicode/norm"
 )
 
 // span is a word's position in a text, as byte offsets.
@@ -41,6 +42,17 @@ func Words(text string) []string {
 		words = append(words, strings.ToLower(text[s.start:s.end]))
 	}
 	return words
+}
+
+// Fold makes text comparable ignoring case and accents: "Caffè" and "CAFFE" both fold to "caffe".
+func Fold(text string) string {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(text) {
+		if !unicode.Is(unicode.Mn, r) {
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return b.String()
 }
 
 // Stem returns the stem of a lower-cased word in the language, "en" or "it".

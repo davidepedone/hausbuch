@@ -632,3 +632,38 @@ func TestGroupItems(t *testing.T) {
 		}
 	}
 }
+
+func TestSearch(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Rice", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Pasta", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Tomato passata", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Caffè", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, Category: "Fresh", Location: "Fridge"})
+	f.add(Supplies, Values{Name: "Coffee machine descaler", Quantity: 1 * One})
+	f.add(Medicines, Values{Name: "Coffee tablets", Quantity: 1 * One})
+	f.add(Pantry, Values{Name: "Coffee", Quantity: 1 * One})
+	for _, c := range []struct {
+		name, text string
+		want       []string
+	}{
+		{"part of a name", "pas", []string{"Passata", "Pasta", "Tomato passata"}},
+		{"case and accents", "CAFFE", []string{"Caffè"}},
+		{"accent typed", "caffè", []string{"Caffè"}},
+		{"every word must be in the name", "passata tomato", []string{"Tomato passata"}},
+		{"other fields are not searched", "fridge", nil},
+		{"category not searched", "fresh", nil},
+		{"sections' order", "coffee", []string{"Coffee tablets", "Coffee", "Coffee machine descaler"}},
+		{"empty query", "  ", nil},
+	} {
+		items, err := f.stock.Search(ctx, c.text)
+		var got []string
+		for _, it := range items {
+			got = append(got, it.Name)
+		}
+		if err != nil || !slices.Equal(got, c.want) {
+			t.Errorf("%s: %q, %v, want %q", c.name, got, err, c.want)
+		}
+	}
+}

@@ -10,6 +10,7 @@
   <link rel="manifest" href="/static/manifest.json">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/search.js" defer></script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-900">
   <header class="sticky top-0 z-10 border-b border-sage-200 bg-sage-100">
@@ -26,9 +27,12 @@
         hausbuch
       </a>
       {{with .User}}
-      <form method="get" action="/search" role="search" class="order-last w-full sm:order-none sm:w-auto sm:flex-1">
-        <input type="search" name="q" value="{{$.Search}}" placeholder="Search pages" aria-label="Search pages"
+      <form method="get" action="/search" role="search" class="relative order-last w-full sm:order-none sm:w-auto sm:flex-1">
+        {{/* "search" is what the field fires when its ✕ clears it: the empty answer closes the panel. */}}
+        <input type="search" name="q" value="{{$.Search}}" placeholder="Search" aria-label="Search" autocomplete="off"
+          hx-get="/search" hx-trigger="input changed delay:200ms, search" hx-target="#search-panel"
           class="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm focus:border-stone-500 focus:outline-none">
+        <div id="search-panel" class="absolute inset-x-0 top-full z-20 mt-1 max-h-[70vh] overflow-y-auto rounded border border-stone-200 bg-stone-50 p-3 shadow-lg empty:hidden"></div>
       </form>
       <nav class="ml-auto flex min-w-0 items-center gap-3 text-sm">
         <a href="/account/password" class="truncate text-stone-600 hover:text-stone-900">{{.DisplayName}}</a>

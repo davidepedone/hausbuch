@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -508,20 +509,60 @@ type Result struct {
 	Excerpt search.Excerpt
 }
 
-// Search returns the pages that aren't deleted and contain every searched word, in their title or body, in any form:
-// first those with the words in their title, then by relevance.
+// Search returns the pages that aren't deleted and contain every searched word, in their title or body, in any form,
+// or whose title contains each searched word as part of a word: first those with the words in their title, then by
+// relevance.
 func (s *Store) Search(ctx context.Context, text string) ([]Result, error) {
 	query := search.Query(text)
 	if query == "" {
 		return nil, nil
 	}
 	pages, err := s.queryPages(ctx, ` JOIN page_fts ON page_fts.rowid = p.id
-		WHERE page_fts MATCH ? AND p.deleted_at IS NULL
-		ORDER BY p.id IN (SELECT rowid FROM page_fts WHERE page_fts MATCH ?) DESC, bm25(page_fts)`,
-		query, "title_stem : ("+query+")")
+		WHERE page_fts MATCH ? AND p.deleted_at IS NULL ORDER BY bm25(page_fts)`, query)
 	if err != nil {
 		return nil, err
 	}
+	inTitle := map[int64]bool{}
+	rows, err := s.DB.QueryContext(ctx, "SELECT rowid FROM page_fts WHERE page_fts MATCH ?", "title_stem : ("+query+")")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		inTitle[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Words still being typed aren't in the index yet, which holds whole words' stems: titles are matched on parts.
+	all, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	words := search.Words(text)
+	for _, p := range all {
+		title := search.Fold(p.Title)
+		if slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(title, search.Fold(w)) }) {
+			continue
+		}
+		if !slices.ContainsFunc(pages, func(q Page) bool { return q.ID == p.ID }) {
+			pages = append(pages, p)
+		}
+		inTitle[p.ID] = true
+	}
+	slices.SortStableFunc(pages, func(a, b Page) int {
+		switch {
+		case inTitle[a.ID] && !inTitle[b.ID]:
+			return -1
+		case inTitle[b.ID] && !inTitle[a.ID]:
+			return 1
+		}
+		return 0
+	})
 	results := make([]Result, len(pages))
 	for i, p := range pages {
 		results[i] = Result{Page: p, Excerpt: search.MakeExcerpt(p.Body, p.Language, text)}

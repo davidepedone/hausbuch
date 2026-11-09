@@ -17,6 +17,15 @@ func TestWordFormsShareAStem(t *testing.T) {
 	}
 }
 
+func TestFold(t *testing.T) {
+	for text, want := range map[string]string{"Caffè": "caffe", "CAFFE": "caffe", "Perché": "perche", "Ünïcödé": "unicode",
+		"Rice": "rice"} {
+		if got := Fold(text); got != want {
+			t.Errorf("Fold(%q) = %q, want %q", text, got, want)
+		}
+	}
+}
+
 func TestWords(t *testing.T) {
 	for text, want := range map[string][]string{
 		"l'irrigazione":             {"l", "irrigazione"},
