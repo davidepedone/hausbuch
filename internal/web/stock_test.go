@@ -240,7 +240,7 @@ func TestUseTheLastOneAndUndo(t *testing.T) {
 	a.stockClock()
 	anna := a.signedInAs("anna", "Anna")
 	marco := a.signedInAs("marco", "Marco")
-	anna.addItem(stock.Pantry, url.Values{"name": {"Passata & co"}, "unit": {"bottles"}, "location": {"Pantry"},
+	anna.addItem(stock.Pantry, url.Values{"name": {"Passata & co"}, "unit": {"bottles"}, "category": {"Long-life"}, "location": {"Pantry"},
 		"expires_on": {"2027-09-30"}, "opened_days": {"4"}})
 	anna.hx(itemPath(a.item(stock.Pantry, "Passata & co"))+"/open", nil)
 	before := a.item(stock.Pantry, "Passata & co")
@@ -308,20 +308,80 @@ func TestOpenedTodayFromTheList(t *testing.T) {
 func TestBuySomethingAgain(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
-	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "location": {"Pantry, top shelf"}, "opened_days": {"4"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "category": {"Long-life"}, "location": {"Pantry, top shelf"},
+		"opened_days": {"4"}})
 	b.hx(itemPath(a.item(stock.Pantry, "Passata"))+"/remove", nil)
-	mustContain(t, b.view("/pantry"), `<option value="Passata">`, `<option value="Pantry, top shelf">`)
+	mustContain(t, b.view("/pantry"), `<option value="Passata">`, `<option value="Pantry, top shelf">`,
+		`<datalist id="categories"><option value="Long-life">`)
 	resp := b.get("/pantry/product?name=passata")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("known product: %s", resp.Status)
 	}
-	mustContain(t, resp.body, `id="product-fields"`, `name="location" value="Pantry, top shelf"`,
+	mustContain(t, resp.body, `id="product-fields"`, `name="category" value="Long-life"`,
+		`name="location" value="Pantry, top shelf"`,
 		`name="opened_days" value="4"`)
 	if resp := b.get("/pantry/product?name=Pesto"); resp.StatusCode != http.StatusNoContent || resp.body != "" {
 		t.Errorf("unknown product: %s %q", resp.Status, resp.body)
 	}
 	if resp := b.get("/medicines/product?name=Passata"); resp.StatusCode != http.StatusNoContent {
 		t.Errorf("product of another section: %s", resp.Status)
+	}
+}
+
+func TestItemWithACategory(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Milk"}, "category": {"Fresh"}})
+	milk := a.item(stock.Pantry, "Milk")
+	if milk.Category != "Fresh" {
+		t.Errorf("category %q", milk.Category)
+	}
+	_, group, ok := strings.Cut(b.view("/pantry"), `<h2 class="mb-1 font-display text-lg font-semibold">Fresh</h2>`)
+	group, _, _ = strings.Cut(group, "</section>")
+	if !ok || !strings.Contains(group, `id="item-`+strconv.FormatInt(milk.ID, 10)+`" data-entry data-chip="fresh"`) {
+		t.Errorf("not in the Fresh group:\n%s", group)
+	}
+	edit := b.view(itemPath(milk))
+	mustContain(t, edit, `name="category" value="Fresh"`, `<datalist id="categories"><option value="Fresh">`)
+	if r := b.post(itemPath(milk), url.Values{"name": {"Milk"}, "quantity": {"1"}, "category": {"Dairy"}}); r.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save: %s", r.Status)
+	}
+	if got := a.item(stock.Pantry, "Milk").Category; got != "Dairy" {
+		t.Errorf("after edit %q", got)
+	}
+}
+
+func TestChipsOfASection(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Salt"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}, "category": {"Long-life"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Milk"}, "category": {"Fresh"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Yogurt"}, "category": {"fresh"}})
+	html := b.view("/pantry")
+	mustContain(t, html, `data-filter-all aria-pressed="true"`,
+		`data-filter-chip="fresh" aria-pressed="false" class="chip">Fresh<`,
+		`data-filter-chip="long-life" aria-pressed="false" class="chip">Long-life<`,
+		`data-filter-chip="" aria-pressed="false" class="chip">Other<`, `data-filter-none hidden`,
+		`<script src="/static/listfilter.js" defer>`)
+	fresh, longLife, other := strings.Index(html, ">Fresh</h2>"), strings.Index(html, ">Long-life</h2>"), strings.Index(html, ">Other</h2>")
+	if fresh < 0 || fresh > longLife || longLife > other {
+		t.Errorf("groups out of order: %d %d %d", fresh, longLife, other)
+	}
+	if n := strings.Count(html, "<section data-group"); n != 3 {
+		t.Errorf("%d groups", n)
+	}
+}
+
+func TestNoCategories(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}})
+	html := b.view("/pantry")
+	mustContain(t, html, `data-entry data-chip=""`)
+	if strings.Contains(html, "data-filter-chip") || strings.Contains(html, "data-filter-all") ||
+		strings.Contains(html, "data-group") {
+		t.Errorf("chips or groups without categories:\n%s", html)
 	}
 }
 

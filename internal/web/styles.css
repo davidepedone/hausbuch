@@ -20,6 +20,12 @@
   src: url("/static/fonts/fraunces.woff2") format("woff2");
 }
 
+/* A list filter's chip; the chosen one is filled. */
+.chip {
+  @apply flex items-center gap-1.5 rounded-full border border-sage-200 bg-sage-50 px-3 py-1.5 text-sm font-medium
+    text-stone-800 hover:bg-sage-100 aria-pressed:border-sage-700 aria-pressed:bg-sage-700 aria-pressed:text-white;
+}
+
 /* [[Title]] links to a page that doesn't exist yet. */
 .prose a.missing {
   @apply text-red-700 decoration-dashed;

@@ -127,11 +127,8 @@ func TestChangeType(t *testing.T) {
 		"body": {body}}); resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: %s", resp.Status)
 	}
-	if html := b.view("/?type=where"); !strings.Contains(html, ">Irrigation<") {
+	if html := b.view("/"); !strings.Contains(html, `data-chip="where"`) {
 		t.Errorf("not listed under Where is it:\n%s", html)
-	}
-	if html := b.view("/?type=howto"); strings.Contains(html, ">Irrigation<") {
-		t.Error("still listed under How-to")
 	}
 	p, _ := a.pages.Get(context.Background(), idOf(t, path))
 	if p.Body != body {

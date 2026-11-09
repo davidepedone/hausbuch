@@ -374,10 +374,9 @@ func (s *Store) Get(ctx context.Context, id int64) (Page, error) {
 	return p, err
 }
 
-// List returns the pages that aren't deleted, most recently changed first, only those of type t unless it is empty.
-func (s *Store) List(ctx context.Context, t Type) ([]Page, error) {
-	return s.queryPages(ctx, " WHERE p.deleted_at IS NULL AND (? = '' OR p.type = ?) ORDER BY r.created_at DESC, r.rowid DESC",
-		t, t)
+// List returns the pages that aren't deleted, most recently changed first.
+func (s *Store) List(ctx context.Context) ([]Page, error) {
+	return s.queryPages(ctx, " WHERE p.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC")
 }
 
 // Resolve returns the id of the page that isn't deleted and has the title, as its title or a former one.

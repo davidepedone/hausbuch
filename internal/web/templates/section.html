@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Data}}
 <h1 class="mb-4 font-display text-xl font-semibold">{{.Section.Label}}</h1>
-<details class="mb-6 rounded border border-stone-200 bg-white"{{if or (not .Items) .Form.Error}} open{{end}}>
+<details class="mb-6 rounded border border-stone-200 bg-white"{{if or (not .Groups) .Form.Error}} open{{end}}>
   <summary class="cursor-pointer px-4 py-3 font-medium">Add item</summary>
   <form method="post" action="/{{.Section}}/items" class="space-y-4 border-t border-stone-200 p-4">
     {{with .Form.Error}}
@@ -28,17 +28,26 @@
       </label>
     </div>
     {{template "productFields" .}}
+    <datalist id="categories">{{range .Categories}}<option value="{{.}}">{{end}}</datalist>
     <datalist id="locations">{{range .Locations}}<option value="{{.}}">{{end}}</datalist>
     {{template "expiryField" .Form}}
     <button class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Add</button>
   </form>
 </details>
-{{template "items" .}}
+<div data-filter>
+  {{template "items" .}}
+</div>
+<script src="/static/listfilter.js" defer></script>
 {{end}}
 {{end}}
 
 {{define "productFields"}}
 <div id="product-fields" class="grid gap-4 sm:grid-cols-2">
+  <label class="block sm:col-span-2">
+    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
+           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
   <label class="block">
     <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
     <input name="location" value="{{.Form.Location}}" list="locations" autocomplete="off"
@@ -63,6 +72,7 @@
     <input type="hidden" name="name" value="{{.Name}}">
     <input type="hidden" name="quantity" value="{{.Quantity}}">
     <input type="hidden" name="unit" value="{{.Unit}}">
+    <input type="hidden" name="category" value="{{.Category}}">
     <input type="hidden" name="location" value="{{.Location}}">
     <input type="hidden" name="expires_on" value="{{.ExpiresOn}}">
     <input type="hidden" name="opened_on" value="{{.OpenedOn}}">
@@ -74,19 +84,36 @@
     <button class="shrink-0 font-semibold underline">Undo</button>
   </form>
   {{end}}
-  {{with .Items}}
+  {{if .Grouped}}
+  <div class="mb-4 flex flex-wrap gap-2" aria-label="Categories" role="group">
+    {{template "allChip"}}
+    {{range .Groups}}<button type="button" data-filter-chip="{{.Key}}" aria-pressed="false" class="chip">{{or .Label "Other"}}</button>
+    {{end}}
+  </div>
+  {{range .Groups}}
+  <section data-group class="mb-4">
+    <h2 class="mb-1 font-display text-lg font-semibold">{{or .Label "Other"}}</h2>
+    <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+      {{range .Items}}{{template "itemRow" .}}{{end}}
+    </ul>
+  </section>
+  {{end}}
+  {{else}}
+  {{range .Groups}}
   <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
-    {{range .}}{{template "itemRow" .}}{{end}}
+    {{range .Items}}{{template "itemRow" .}}{{end}}
   </ul>
   {{else}}
   <p class="text-stone-500">Nothing here yet.</p>
   {{end}}
+  {{end}}
+  {{template "nothingMatches"}}
 </div>
 {{end}}
 
 {{define "itemRow"}}
 {{$url := itemURL .}}
-<li id="item-{{.ID}}" class="scroll-mt-4 px-4 py-3">
+<li id="item-{{.ID}}" data-entry data-chip="{{lower .Category}}" class="scroll-mt-4 px-4 py-3">
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
       <span class="block break-words font-medium">{{.Name}}</span>

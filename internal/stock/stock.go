@@ -78,6 +78,7 @@ type Values struct {
 	Name       string
 	Quantity   Quantity
 	Unit       string
+	Category   string
 	Location   string
 	ExpiresOn  time.Time
 	OpenedOn   time.Time
@@ -122,6 +123,7 @@ type Item struct {
 // Product is what a section remembers of a name once used.
 type Product struct {
 	Name       string
+	Category   string
 	Location   string
 	OpenedDays int
 }
@@ -157,6 +159,7 @@ func (s *Store) today() time.Time { return Date(s.Now().In(time.Local)) }
 func check(v *Values) error {
 	v.Name = strings.TrimSpace(v.Name)
 	v.Unit = strings.TrimSpace(v.Unit)
+	v.Category = strings.TrimSpace(v.Category)
 	v.Location = strings.TrimSpace(v.Location)
 	switch {
 	case v.Name == "":
@@ -202,10 +205,10 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 			}
 		}
 		res, err := tx.ExecContext(ctx, `
-			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, location, expires_on, opened_on,
-				opened_days, created_by, created_at, changed_by, changed_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			section, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
+			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
+				opened_on, opened_days, created_by, created_at, changed_by, changed_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			section, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
 			days(v.OpenedDays), createdBy, createdAt.Unix(), userID, now)
 		if err != nil {
 			return err
@@ -225,10 +228,10 @@ func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v
 	}
 	return s.inTx(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE stock_item SET name = ?, name_key = ?, quantity_tenths = ?, unit = ?, location = ?, expires_on = ?,
-				opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
+			UPDATE stock_item SET name = ?, name_key = ?, quantity_tenths = ?, unit = ?, category = ?, location = ?,
+				expires_on = ?, opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
 			WHERE id = ? AND section = ?`,
-			v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
+			v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
 			days(v.OpenedDays), userID, s.Now().Unix(), id, section)
 		if err != nil {
 			return err
@@ -243,10 +246,11 @@ func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v
 // remember records v's product as the section's latest use of its name.
 func remember(ctx context.Context, tx *sql.Tx, section Section, v Values) error {
 	_, err := tx.ExecContext(ctx, `
-		INSERT INTO stock_product (section, name_key, name, location, opened_days) VALUES (?, ?, ?, ?, ?)
+		INSERT INTO stock_product (section, name_key, name, category, location, opened_days) VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT (section, name_key) DO UPDATE
-		SET name = excluded.name, location = excluded.location, opened_days = excluded.opened_days`,
-		section, nameKey(v.Name), v.Name, v.Location, days(v.OpenedDays))
+		SET name = excluded.name, category = excluded.category, location = excluded.location,
+			opened_days = excluded.opened_days`,
+		section, nameKey(v.Name), v.Name, v.Category, v.Location, days(v.OpenedDays))
 	return err
 }
 
@@ -330,17 +334,17 @@ func (s *Store) Open(ctx context.Context, section Section, id, userID int64) err
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, location, expires_on, opened_on,
-				opened_days, created_by, created_at, changed_by, changed_at)
-			SELECT section, name, name_key, ?, unit, location, expires_on, ?, opened_days, ?, ?, ?, ?
+			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
+				opened_on, opened_days, created_by, created_at, changed_by, changed_at)
+			SELECT section, name, name_key, ?, unit, category, location, expires_on, ?, opened_days, ?, ?, ?, ?
 			FROM stock_item WHERE id = ?`, One, today, userID, now, userID, now, id)
 		return err
 	})
 }
 
 const selectItems = `
-	SELECT i.id, i.section, i.name, i.quantity_tenths, i.unit, i.location, i.expires_on, i.opened_on, i.opened_days,
-		i.created_by, cu.display_name, i.created_at, chu.display_name, i.changed_at
+	SELECT i.id, i.section, i.name, i.quantity_tenths, i.unit, i.category, i.location, i.expires_on, i.opened_on,
+		i.opened_days, i.created_by, cu.display_name, i.created_at, chu.display_name, i.changed_at
 	FROM stock_item i JOIN app_user cu ON cu.id = i.created_by JOIN app_user chu ON chu.id = i.changed_by`
 
 func (s *Store) scan(row interface{ Scan(...any) error }) (Item, error) {
@@ -348,7 +352,7 @@ func (s *Store) scan(row interface{ Scan(...any) error }) (Item, error) {
 	var expires, opened sql.NullString
 	var openedDays sql.NullInt64
 	var createdAt, changedAt int64
-	if err := row.Scan(&it.ID, &it.Section, &it.Name, &it.Quantity, &it.Unit, &it.Location, &expires, &opened,
+	if err := row.Scan(&it.ID, &it.Section, &it.Name, &it.Quantity, &it.Unit, &it.Category, &it.Location, &expires, &opened,
 		&openedDays, &it.CreatedByID, &it.CreatedBy, &createdAt, &it.ChangedBy, &changedAt); err != nil {
 		return Item{}, err
 	}
@@ -427,6 +431,35 @@ func (s *Store) Warnings(ctx context.Context) ([]Item, error) {
 	return items, nil
 }
 
+// Group is the rows of a listed section with one category; Key is the category lower-cased, "" for rows without one,
+// and Label its spelling in the group's first row.
+type Group struct {
+	Key, Label string
+	Items      []Item
+}
+
+// GroupItems splits a section's rows by category, in alphabetical order with the rows without one last, keeping their
+// order within a group. Rows without any category make one group with an empty key.
+func GroupItems(items []Item) []Group {
+	var groups []Group
+	for _, it := range items {
+		key := nameKey(it.Category)
+		i := slices.IndexFunc(groups, func(g Group) bool { return g.Key == key })
+		if i < 0 {
+			groups = append(groups, Group{Key: key, Label: it.Category})
+			i = len(groups) - 1
+		}
+		groups[i].Items = append(groups[i].Items, it)
+	}
+	slices.SortFunc(groups, func(a, b Group) int {
+		if (a.Key == "") != (b.Key == "") {
+			return strings.Compare(b.Key, a.Key) // the empty key last
+		}
+		return strings.Compare(a.Key, b.Key)
+	})
+	return groups
+}
+
 // compareExpiry orders by expiry date, items without one last.
 func compareExpiry(a, b Item) int {
 	ea, eb := a.Expiry(), b.Expiry()
@@ -453,6 +486,13 @@ func (s *Store) Locations(ctx context.Context, section Section) ([]string, error
 		section)
 }
 
+// Categories returns the categories the section's products last had, without repetitions ignoring case.
+func (s *Store) Categories(ctx context.Context, section Section) ([]string, error) {
+	list, err := s.strings(ctx, "SELECT DISTINCT category FROM stock_product WHERE section = ? AND category != ''", section)
+	slices.SortStableFunc(list, func(a, b string) int { return strings.Compare(nameKey(a), nameKey(b)) })
+	return slices.CompactFunc(list, func(a, b string) bool { return nameKey(a) == nameKey(b) }), err
+}
+
 func (s *Store) strings(ctx context.Context, query string, args ...any) ([]string, error) {
 	rows, err := s.DB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -475,8 +515,8 @@ func (s *Store) Product(ctx context.Context, section Section, name string) (Prod
 	var p Product
 	var openedDays sql.NullInt64
 	err := s.DB.QueryRowContext(ctx,
-		"SELECT name, location, opened_days FROM stock_product WHERE section = ? AND name_key = ?",
-		section, nameKey(name)).Scan(&p.Name, &p.Location, &openedDays)
+		"SELECT name, category, location, opened_days FROM stock_product WHERE section = ? AND name_key = ?",
+		section, nameKey(name)).Scan(&p.Name, &p.Category, &p.Location, &openedDays)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Product{}, false, nil
 	}
