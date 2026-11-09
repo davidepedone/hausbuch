@@ -15,9 +15,9 @@
   </ul>
 </section>
 {{end}}
-<nav class="mb-8 grid grid-cols-2 gap-2 text-sm" aria-label="Sections">
+<nav class="mb-8 grid grid-cols-3 gap-2 text-sm" aria-label="Sections">
   {{range sections}}
-  <a href="/{{.}}" class="flex items-center justify-center gap-3 rounded-lg border border-sage-200 bg-sage-50 px-3 py-4 font-medium text-stone-800 hover:bg-sage-100">
+  <a href="/{{.}}" class="flex flex-col items-center gap-1 rounded-lg border border-sage-200 bg-sage-50 px-3 py-3 font-medium text-stone-800 hover:bg-sage-100">
     <span class="size-8 text-sage-700">{{template "sectionIcon" .}}</span>
     {{.Label}}
   </a>

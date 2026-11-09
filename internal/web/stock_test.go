@@ -354,6 +354,34 @@ func TestExpiringBoxOnTheHomePage(t *testing.T) {
 	mustContain(t, html, `href="/medicines"`, `href="/pantry"`, "Recently changed")
 }
 
+func TestSuppliesInTheBox(t *testing.T) {
+	a := newApp(t)
+	a.stockClock()
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Supplies, url.Values{"name": {"Descaler"}, "expires_on": {"2026-11-09"}})
+	_, box, ok := strings.Cut(b.view("/"), `aria-labelledby="expiring"`)
+	box, _, _ = strings.Cut(box, "</section>")
+	if !ok {
+		t.Fatal("no box")
+	}
+	descaler := a.item(stock.Supplies, "Descaler")
+	mustContain(t, box, `href="/supplies#item-`+strconv.FormatInt(descaler.ID, 10)+`"`, "Descaler", "· 1 · Supplies")
+}
+
+func TestSectionsOnTheHomePage(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	_, nav, _ := strings.Cut(b.view("/"), `aria-label="Sections"`)
+	nav, _, _ = strings.Cut(nav, "</nav>")
+	for _, sec := range []string{"medicines", "pantry", "supplies"} {
+		mustContain(t, nav, `href="/`+sec+`"`)
+	}
+	mustContain(t, nav, "Medicines", "Pantry", "Supplies")
+	if resp := b.get("/supplies"); resp.StatusCode != http.StatusOK || !strings.Contains(resp.body, ">Supplies</h1>") {
+		t.Errorf("supplies section: %s", resp.Status)
+	}
+}
+
 func TestNoExpiringBox(t *testing.T) {
 	a := newApp(t)
 	a.stockClock()

@@ -185,6 +185,7 @@ func leadTimes() (map[stock.Section]int, error) {
 	for section, key := range map[stock.Section]string{
 		stock.Medicines: "HAUSBUCH_MEDICINES_LEAD_DAYS",
 		stock.Pantry:    "HAUSBUCH_PANTRY_LEAD_DAYS",
+		stock.Supplies:  "HAUSBUCH_SUPPLIES_LEAD_DAYS",
 	} {
 		if v := os.Getenv(key); v != "" {
 			n, err := strconv.Atoi(v)
