@@ -9,7 +9,8 @@ approach:
 - Stock rows have `name_key`, the name trimmed and lower-cased in Go, since SQLite's `lower()` only folds ASCII; there
   is no accent-free form of the name and no index on parts of it.
 - `search.Words` splits text into lower-cased words on anything that isn't a letter, digit or mark.
-- Stock sections are household-sized: tens of rows each.
+- Stock sections are household-sized: tens of rows each; the wiki has tens to a few hundred pages.
+- The full-text index holds stems, so a word still being typed ("irri") matches nothing until it is complete.
 - The search page renders `[]page.Result`; the home page's "Expiring" box already shows a stock row with its section,
   expiry note and a link to `/<section>#item-<id>`.
 
@@ -39,13 +40,40 @@ the column in step on every write, to save a scan of a few hundred rows.
 
 ### One results page, groups in the template
 
-`searchData` gains `Items []stock.Item`. The template shows a "Pages" group when there are page results and one group
-per section with rows, headed by the section's label; each row reuses the expiry note and the link of the "Expiring"
+`searchData` gains the stock rows split by section, one entry per section with matches. The template shows a "Pages"
+group when there are page results and one group per section, headed by the section's label; each row reuses the expiry note and the link of the "Expiring"
 box. "Nothing found" and the offer to create a page appear only when both are empty.
 
 The header's field becomes "Search" in its placeholder and `aria-label`.
 
+### Page titles matched on parts of words
+
+`page.Store.Search` keeps its full-text query and adds the pages whose folded title contains each folded word, found
+by scanning the titles of the pages that aren't deleted. Title matches come first, whether by stem or by part of a
+word: the ids matching the full-text query on `title_stem` alone are read separately, and the merged list is sorted
+stably on "matches in the title", keeping the full-text order within each half. A page found only by its title gets an
+excerpt as today, which is empty when its body doesn't contain the words.
+
+*Alternative considered*: a prefix query on the last word (`"irri"*`) in the full-text index. The index holds stems,
+so a prefix of the typed word stops matching once it grows past the stem ("irrigaz" against "irrig"), and results
+would come and go while typing.
+
+### Results while typing through HTMX
+
+The header's field gets `hx-get="/search"`, triggered on `input changed delay:200ms` and on `search` (the event a
+search field fires when its ✕ clears it), targeting a panel under the field. `/search` answers an HTMX request with
+only the results part, the same template the full page uses, and with nothing for an empty query, which empties the
+panel. The form still submits normally on Enter, opening the full page.
+
+A small `static/search.js`, loaded by the layout, empties the panel on Escape and on a click outside the search form.
+The panel scrolls within the screen's height and sits above the page, so the screen underneath doesn't move.
+
+*Alternative considered*: showing the panel only while the field has focus, through CSS. Safari doesn't focus a link
+when it is tapped, so the panel would close before the tap reached the result.
+
 ## Risks / Trade-offs
 
-- [A short query such as "a" lists most of the stock] → Accepted: results are grouped and the user refines the query;
-  pages already behave alike for common words.
+- [A short query such as "a" lists most of the stock and many titles] → Accepted: results are grouped, the panel
+  scrolls, and the user refines the query as they type.
+- [A request per pause in typing] → One query over the index and two scans of household-sized tables, at most every
+  200ms while typing.

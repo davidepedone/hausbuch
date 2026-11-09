@@ -22,7 +22,53 @@ ignoring case and accents. Only the name SHALL be searched.
 - **WHEN** "Milk" is kept in the "Fridge" and a user searches "fridge"
 - **THEN** "Milk" is not among the results
 
+### Requirement: Results while typing
+While a user types in the search field, a panel under it SHALL show the results for the text typed so far, grouped as
+in "Search results". Clearing the field or pressing Escape SHALL close the panel and leave the screen as it was, and
+confirming the search SHALL open the full results page.
+
+#### Scenario: Results appear while typing
+- **WHEN** a user types "pas" in the search field without confirming
+- **THEN** a panel under the field shows "Passata" and "Pasta" under "Pantry"
+
+#### Scenario: Clear the field
+- **WHEN** the panel shows results and the user clears the field
+- **THEN** the panel closes and the screen underneath is unchanged
+
+#### Scenario: Confirm the search
+- **WHEN** a user types "pas" and confirms the search
+- **THEN** the full results page for "pas" opens
+
 ## MODIFIED Requirements
+
+### Requirement: Search pages by words
+Any signed-in user SHALL be able to search pages by words. A page SHALL match when it contains all the searched
+words, in its title or body, ignoring case and accents and matching word forms in the page's language, or when each
+searched word is part of its title, ignoring case and accents. Deleted pages SHALL NOT match.
+
+#### Scenario: English word forms
+- **WHEN** a user searches "descale" and the English page "Coffee machine" says "descaling every three months"
+- **THEN** "Coffee machine" is among the results
+
+#### Scenario: Italian word forms
+- **WHEN** a user searches "irrigare" and the Italian page "Giardino" says "l'irrigazione parte ad aprile"
+- **THEN** "Giardino" is among the results
+
+#### Scenario: Searching without choosing a language
+- **WHEN** a user searches "ricetta" and there are matching pages in Italian
+- **THEN** they are found without the user saying which language they searched in
+
+#### Scenario: All words must match
+- **WHEN** a user searches "garden water" and a page contains "garden" but not "water"
+- **THEN** that page is not among the results
+
+#### Scenario: Part of a title
+- **WHEN** a user searches "irri" and the page "Irrigation" doesn't contain "irri" as a word
+- **THEN** "Irrigation" is among the results
+
+#### Scenario: Deleted page
+- **WHEN** a user searches a word that only a deleted page contains
+- **THEN** there are no results
 
 ### Requirement: Search results
 Results SHALL be grouped by where they come from: pages first, then each stock section in the sections' order, a group

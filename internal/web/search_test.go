@@ -79,8 +79,10 @@ func TestSearchFieldOnEverySignedInScreen(t *testing.T) {
 	b := a.signedInAs("anna", "Anna")
 	path := b.create("Garden", "Mow the lawn.")
 	for _, p := range []string{"/", path, path + "/edit", path + "/history", "/pages/new", "/deleted", "/account/password",
-		"/search?q=x"} {
-		mustContain(t, b.view(p), `<form method="get" action="/search" role="search"`)
+		"/search?q=x", "/pantry"} {
+		mustContain(t, b.view(p), `<form method="get" action="/search" role="search"`,
+			`hx-get="/search" hx-trigger="input changed delay:200ms, search" hx-target="#search-panel"`,
+			`<div id="search-panel"`, `<script src="/static/search.js" defer>`)
 	}
 	mustContain(t, b.search("lawn"), `name="q" value="lawn"`)
 
@@ -135,5 +137,40 @@ func TestSearchLabel(t *testing.T) {
 	mustContain(t, html, `placeholder="Search" aria-label="Search"`)
 	if strings.Contains(html, "Search pages") {
 		t.Error("still labelled Search pages")
+	}
+}
+
+// typing asks for the results the way the header's field does while the user types.
+func (b *browser) typing(text string) response {
+	b.app.t.Helper()
+	req, err := http.NewRequest(http.MethodGet, b.app.srv.URL+"/search?q="+url.QueryEscape(text), nil)
+	if err != nil {
+		b.app.t.Fatal(err)
+	}
+	req.Header.Set("HX-Request", "true")
+	return b.do(req)
+}
+
+func TestResultsWhileTyping(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	path := b.create("Irrigation", "Turn the tap.")
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Pasta"}})
+	resp := b.typing("pas")
+	if resp.StatusCode != http.StatusOK || strings.Contains(resp.body, "<html") || strings.Contains(resp.body, "<h1") {
+		t.Fatalf("not just the results: %s\n%s", resp.Status, resp.body)
+	}
+	mustContain(t, resp.body, ">Pantry</h2>", ">Passata<", ">Pasta<")
+	mustContain(t, b.typing("irri").body, ">Pages</h2>", `href="`+path+`"`)
+	mustContain(t, b.typing("boiler").body, "Nothing found for “boiler”.")
+}
+
+func TestClearingTheFieldClosesThePanel(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}})
+	if resp := b.typing("  "); resp.StatusCode != http.StatusOK || resp.body != "" {
+		t.Errorf("empty search: %s %q", resp.Status, resp.body)
 	}
 }

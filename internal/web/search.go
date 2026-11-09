@@ -21,6 +21,10 @@ type stockResults struct {
 
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	partial := r.Header.Get("HX-Request") != ""
+	if partial && q == "" {
+		return // the header's panel closes
+	}
 	results, err := s.pages.Search(r.Context(), q)
 	if err != nil {
 		s.fail(w, err)
@@ -37,6 +41,10 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 			d.Stock = append(d.Stock, stockResults{Section: it.Section})
 		}
 		d.Stock[len(d.Stock)-1].Items = append(d.Stock[len(d.Stock)-1].Items, it)
+	}
+	if partial {
+		s.renderPart(w, "search", "results", d)
+		return
 	}
 	s.render(w, r, http.StatusOK, "search", d)
 }
