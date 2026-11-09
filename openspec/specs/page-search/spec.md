@@ -9,20 +9,20 @@ by searching the words in page titles and bodies, and the names of stock items.
 
 ### Requirement: Search pages by words
 Any signed-in user SHALL be able to search pages by words. A page SHALL match when it contains all the searched
-words, in its title or body, ignoring case and accents and matching word forms in the page's language, or when each
+words, in its title or body, ignoring case and accents and matching their English and Italian word forms, or when each
 searched word is part of its title, ignoring case and accents. Deleted pages SHALL NOT match.
 
 #### Scenario: English word forms
-- **WHEN** a user searches "descale" and the English page "Coffee machine" says "descaling every three months"
+- **WHEN** a user searches "descale" and the page "Coffee machine" says "descaling every three months"
 - **THEN** "Coffee machine" is among the results
 
 #### Scenario: Italian word forms
-- **WHEN** a user searches "irrigare" and the Italian page "Giardino" says "l'irrigazione parte ad aprile"
+- **WHEN** a user searches "irrigare" and the page "Giardino" says "l'irrigazione parte ad aprile"
 - **THEN** "Giardino" is among the results
 
 #### Scenario: Searching without choosing a language
-- **WHEN** a user searches "ricetta" and there are matching pages in Italian
-- **THEN** they are found without the user saying which language they searched in
+- **WHEN** a user searches "ricetta" and there are pages saying "ricette"
+- **THEN** they are found without anyone saying which language the search or the pages are in
 
 #### Scenario: All words must match
 - **WHEN** a user searches "garden water" and a page contains "garden" but not "water"

@@ -29,30 +29,21 @@ for the location, how to find or reach it and notes.
 - **WHEN** a user removes or adds sections in a prefilled body and saves
 - **THEN** the page is saved with exactly the body they wrote
 
-### Requirement: Skeletons in the page's language
-Each skeleton SHALL exist in English and Italian, and a new page SHALL be prefilled in its own language. In Italian,
-Recipe SHALL use Porzioni, Tempo, Ingredienti, Procedimento and Note; How-to Quando, Cosa serve, Procedimento and
-Note; Where is it Dove si trova, Come trovarlo and Note.
-
-#### Scenario: Italian recipe
-- **WHEN** a user starts a new Italian page of type Recipe
-- **THEN** the body is prefilled with the headings Porzioni, Tempo, Ingredienti, Procedimento and Note
-
-### Requirement: Skeleton follows choices until the user writes
-While creating a page, changing its type or language SHALL replace the body with the matching skeleton as long as the
-user has not changed the prefilled body. Once they have, the body SHALL stay as they wrote it.
-
-#### Scenario: Language changed before writing
-- **WHEN** a user starts an English Recipe page, changes nothing in the body, and switches the language to Italian
-- **THEN** the body becomes the Italian Recipe skeleton
-
-#### Scenario: Language changed after writing
-- **WHEN** a user has typed in the prefilled body and then switches the language or the type
-- **THEN** the body keeps exactly what they typed
-
 ### Requirement: Changing a page's type
 A user SHALL be able to change the type of an existing page. Changing the type SHALL NOT change the body.
 
 #### Scenario: Change type
 - **WHEN** a user changes a How-to page to Where is it
 - **THEN** the page is listed under Where is it and its body is unchanged
+
+### Requirement: Skeleton follows the type until the user writes
+While creating a page, changing its type SHALL replace the body with the new type's skeleton as long as the user has
+not changed the prefilled body. Once they have, the body SHALL stay as they wrote it.
+
+#### Scenario: Type changed before writing
+- **WHEN** a user starts a Recipe page, changes nothing in the body, and switches the type to How-to
+- **THEN** the body becomes the How-to skeleton
+
+#### Scenario: Type changed after writing
+- **WHEN** a user has typed in the prefilled body and then switches the type
+- **THEN** the body keeps exactly what they typed
