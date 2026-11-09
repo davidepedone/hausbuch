@@ -48,6 +48,7 @@ gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-
 docker buildx inspect hausbuch >/dev/null 2>&1 || docker buildx create --name hausbuch --driver docker-container >/dev/null
 # No provenance attestations: they would show on ghcr.io as untagged versions of every release.
 docker buildx build --builder hausbuch --platform linux/amd64,linux/arm64 --provenance=false --push \
+    --build-arg VERSION="$version" \
     -t "$image:$version" -t "$image:candidate" .
 # The image of each platform gets a tag of its own too, so that every version on ghcr.io has a name.
 for arch in amd64 arm64; do

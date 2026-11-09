@@ -31,16 +31,29 @@ type server struct {
 	pages           *page.Store
 	stock           *stock.Store
 	defaultLanguage string
+	version         string
 	templates       map[string]*template.Template
 	editors         *editors
 }
 
 // view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
-// field, and the page's own data.
+// field, the running version, and the page's own data.
 type view struct {
-	User   *user.User
-	Search string
-	Data   any
+	User    *user.User
+	Search  string
+	Version string
+	Data    any
+}
+
+// repository is where releases are published and problems reported.
+const repository = "https://github.com/davidepedone/hausbuch"
+
+// releaseURL is the page of the version's release notes, or the list of releases for a build that isn't a release.
+func releaseURL(version string) string {
+	if version == "dev" {
+		return repository + "/releases"
+	}
+	return repository + "/releases/tag/v" + version
 }
 
 var funcs = template.FuncMap{
@@ -61,14 +74,17 @@ var funcs = template.FuncMap{
 	"expired":    func(s stock.State) bool { return s == stock.Expired },
 	"expiring":   func(s stock.State) bool { return s == stock.Expiring },
 	// lower is a category's key, as the list filter's chips name it.
-	"lower": strings.ToLower,
+	"lower":      strings.ToLower,
+	"releaseURL": releaseURL,
+	"reportURL":  func() string { return repository + "/issues/new/choose" },
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
-// check requires a session. New pages start in defaultLanguage.
-func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, defaultLanguage string) http.Handler {
-	s := &server{users: users, pages: pages, stock: items, defaultLanguage: defaultLanguage, templates: map[string]*template.Template{},
-		editors: &editors{open: map[editorKey]*editor{}}}
+// check requires a session. New pages start in defaultLanguage; version is the running release, or "dev".
+func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, defaultLanguage, version string) http.Handler {
+	s := &server{users: users, pages: pages, stock: items, defaultLanguage: defaultLanguage, version: version,
+		templates: map[string]*template.Template{},
+		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
 		"revision", "compare", "search", "section", "item"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
@@ -258,7 +274,7 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 // render executes a page into a buffer first, so that a template error becomes a clean 500 rather than half a page.
 func (s *server) render(w http.ResponseWriter, r *http.Request, status int, name string, data any) {
 	var buf bytes.Buffer
-	v := view{User: currentUser(r), Data: data}
+	v := view{User: currentUser(r), Version: s.version, Data: data}
 	if r.URL.Path == "/search" {
 		v.Search = r.URL.Query().Get("q")
 	}

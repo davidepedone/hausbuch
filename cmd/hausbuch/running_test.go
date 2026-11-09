@@ -30,7 +30,7 @@ func runningServer(t *testing.T) (*httptest.Server, *user.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), stock.NewStore(serverDB), "en"))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), stock.NewStore(serverDB), "en", "dev"))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = serverDB.Close()

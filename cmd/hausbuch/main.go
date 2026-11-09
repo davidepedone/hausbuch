@@ -23,6 +23,9 @@ import (
 	"github.com/davidepedone/hausbuch/internal/web"
 )
 
+// version is the running release, set by the release build through the linker.
+var version = "dev"
+
 const usage = `Usage:
   hausbuch [serve]    run the server
   hausbuch healthcheck
@@ -113,7 +116,7 @@ func serve(addr, dbPath, backupDir string) int {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users, pages, items, language),
+		Handler:           web.NewHandler(users, pages, items, language, version),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)

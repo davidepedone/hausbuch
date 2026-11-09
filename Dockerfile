@@ -6,8 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG TARGETOS TARGETARCH
+# The release, which scripts/release.sh passes; any other build shows "dev".
+ARG VERSION=dev
 RUN make css \
-    && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/hausbuch ./cmd/hausbuch \
+    && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+        go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /out/hausbuch ./cmd/hausbuch \
     && mkdir /out/data
 
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
