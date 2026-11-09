@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"errors"
 	"net/http"
 	"strconv"
@@ -35,6 +36,7 @@ func itemURL(it stock.Item) string {
 // itemForm is an item's form as the user filled it in, kept as text so that a refused form shows what was entered.
 type itemForm struct {
 	Name, Quantity, Unit, Category, Location, ExpiresOn, OpenedOn, OpenedDays string
+	Section                                                                   string // where the edit page saves the row
 	Error                                                                     string
 }
 
@@ -91,6 +93,8 @@ func refusal(err error) string {
 		return "The days it lasts once opened must be a whole number of at least 1, or empty."
 	case errors.Is(err, errDate):
 		return "A date isn't valid."
+	case errors.Is(err, stock.ErrSection):
+		return "Choose one of the sections."
 	}
 	return ""
 }
@@ -200,7 +204,9 @@ func (s *server) renderItem(w http.ResponseWriter, r *http.Request, status int, 
 
 func (s *server) editItem(w http.ResponseWriter, r *http.Request, sec stock.Section) {
 	if it, ok := s.itemFromPath(w, r, sec); ok {
-		s.renderItem(w, r, http.StatusOK, it, formOf(it.Values))
+		form := formOf(it.Values)
+		form.Section = string(sec)
+		s.renderItem(w, r, http.StatusOK, it, form)
 	}
 }
 
@@ -210,9 +216,12 @@ func (s *server) saveItem(w http.ResponseWriter, r *http.Request, sec stock.Sect
 		return
 	}
 	form := readForm(r)
+	// A form without the field, such as an edit page loaded by an older release, keeps the row in its section.
+	form.Section = cmp.Or(r.PostFormValue("section"), string(sec))
 	v, err := form.values()
+	id := it.ID
 	if err == nil {
-		err = s.stock.Update(r.Context(), sec, it.ID, currentUser(r).ID, v)
+		id, err = s.stock.Update(r.Context(), sec, it.ID, currentUser(r).ID, v, stock.Section(form.Section))
 	}
 	if msg := refusal(err); msg != "" {
 		form.Error = msg
@@ -223,7 +232,7 @@ func (s *server) saveItem(w http.ResponseWriter, r *http.Request, sec stock.Sect
 		s.fail(w, err)
 		return
 	}
-	http.Redirect(w, r, "/"+string(sec)+"#item-"+strconv.FormatInt(it.ID, 10), http.StatusSeeOther)
+	http.Redirect(w, r, "/"+form.Section+"#item-"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 }
 
 // changeItem applies one of a row's buttons: decrease, increase, open or remove.

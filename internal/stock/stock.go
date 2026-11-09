@@ -44,6 +44,7 @@ var (
 	ErrNotFound   = errors.New("no such item")
 	ErrEmptyName  = errors.New("an item needs a name")
 	ErrQuantity   = errors.New("the quantity must be above 0, with at most one decimal")
+	ErrSection    = errors.New("no such section")
 	ErrOpenedDays = errors.New("the days an item lasts once opened must be a whole number of at least 1")
 )
 
@@ -192,19 +193,10 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	now := s.Now().Unix()
 	var id int64
 	err := s.inTx(ctx, func(tx *sql.Tx) error {
-		if v.OpenedOn.IsZero() {
-			err := tx.QueryRowContext(ctx, `
-				UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
-				WHERE id = (SELECT id FROM stock_item
-					WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
-				RETURNING id`,
-				v.Quantity, userID, now, section, nameKey(v.Name), date(v.ExpiresOn)).Scan(&id)
-			if err == nil {
-				return remember(ctx, tx, section, v)
-			}
-			if !errors.Is(err, sql.ErrNoRows) {
-				return err
-			}
+		var merged bool
+		var err error
+		if id, merged, err = mergeInto(ctx, tx, section, userID, now, v); err != nil || merged {
+			return err
 		}
 		res, err := tx.ExecContext(ctx, `
 			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
@@ -223,26 +215,102 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	return id, err
 }
 
-// Update replaces the values of a row of the section, changed by the user.
-func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v Values) error {
+// Update replaces the values of a row of the section, changed by the user, and keeps it in the section to, moving it
+// there if it is another one. Moved unopened, it is added to an unopened row of to with the same name and expiry date,
+// as Add does; the section it left forgets its product unless rows with that name remain. It returns the id the row
+// ends up with.
+func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v Values, to Section) (int64, error) {
 	if err := check(&v); err != nil {
-		return err
+		return 0, err
 	}
-	return s.inTx(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `
-			UPDATE stock_item SET name = ?, name_key = ?, quantity_tenths = ?, unit = ?, category = ?, location = ?,
-				expires_on = ?, opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
-			WHERE id = ? AND section = ?`,
-			v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
-			days(v.OpenedDays), userID, s.Now().Unix(), id, section)
+	if !slices.Contains(Sections, to) {
+		return 0, ErrSection
+	}
+	now := s.Now().Unix()
+	err := s.inTx(ctx, func(tx *sql.Tx) error {
+		if to == section {
+			var err error
+			id, err = save(ctx, tx, section, id, userID, now, v, to)
+			return err
+		}
+		// The name the row had in the section it leaves, which may change in the same save.
+		var oldKey string
+		err := tx.QueryRowContext(ctx, "SELECT name_key FROM stock_item WHERE id = ? AND section = ?", id, section).
+			Scan(&oldKey)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		if err != nil {
 			return err
 		}
-		if err := oneRow(res); err != nil {
+		if id, err = save(ctx, tx, section, id, userID, now, v, to); err != nil {
 			return err
 		}
-		return remember(ctx, tx, section, v)
+		return forget(ctx, tx, section, oldKey)
 	})
+	return id, err
+}
+
+// save writes v to the row, keeping it in the section to: added to an unopened row of to as Add does when it moves
+// there unopened, rewritten otherwise. It returns the id the row ends up with.
+func save(ctx context.Context, tx *sql.Tx, section Section, id, userID, now int64, v Values, to Section) (int64, error) {
+	if to != section {
+		target, merged, err := mergeInto(ctx, tx, to, userID, now, v)
+		if err != nil {
+			return 0, err
+		}
+		if merged {
+			res, err := tx.ExecContext(ctx, "DELETE FROM stock_item WHERE id = ? AND section = ?", id, section)
+			if err != nil {
+				return 0, err
+			}
+			return target, oneRow(res)
+		}
+	}
+	res, err := tx.ExecContext(ctx, `
+		UPDATE stock_item SET section = ?, name = ?, name_key = ?, quantity_tenths = ?, unit = ?, category = ?,
+			location = ?, expires_on = ?, opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
+		WHERE id = ? AND section = ?`,
+		to, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
+		days(v.OpenedDays), userID, now, id, section)
+	if err != nil {
+		return 0, err
+	}
+	if err := oneRow(res); err != nil {
+		return 0, err
+	}
+	return id, remember(ctx, tx, to, v)
+}
+
+// forget drops the section's memory of a product once none of its rows has that name.
+func forget(ctx context.Context, tx *sql.Tx, section Section, key string) error {
+	_, err := tx.ExecContext(ctx, `
+		DELETE FROM stock_product WHERE section = ? AND name_key = ?
+			AND NOT EXISTS (SELECT 1 FROM stock_item WHERE section = ? AND name_key = ?)`,
+		section, key, section, key)
+	return err
+}
+
+// mergeInto adds v's quantity to an unopened row of the section with v's name and expiry date, when v isn't opened and
+// there is one, remembering v's product; it returns that row's id and whether it did.
+func mergeInto(ctx context.Context, tx *sql.Tx, section Section, userID, now int64, v Values) (int64, bool, error) {
+	if !v.OpenedOn.IsZero() {
+		return 0, false, nil
+	}
+	var id int64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
+		WHERE id = (SELECT id FROM stock_item
+			WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
+		RETURNING id`,
+		v.Quantity, userID, now, section, nameKey(v.Name), date(v.ExpiresOn)).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return id, true, remember(ctx, tx, section, v)
 }
 
 // remember records v's product as the section's latest use of its name.
