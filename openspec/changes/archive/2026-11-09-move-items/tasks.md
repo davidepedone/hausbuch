@@ -11,7 +11,7 @@
 
 ## 3. Integration
 
-- [ ] 3.1 With `make check` green, in the browser at 390px and 1280px, move an item to another section, then onto an existing row of the same product; verify every step behaves as the spec says and nothing overflows sideways
+- [x] 3.1 With `make check` green, in the browser at 390px and 1280px, move an item to another section, then onto an existing row of the same product; verify every step behaves as the spec says and nothing overflows sideways
 
 ## Workflow follow-up
 
