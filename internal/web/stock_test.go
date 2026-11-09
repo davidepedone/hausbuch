@@ -452,3 +452,51 @@ func TestNoExpiringBox(t *testing.T) {
 		t.Errorf("box shown:\n%s", html)
 	}
 }
+
+func TestMoveFromTheEditPage(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Dishwasher tablets"}, "category": {"Cleaning"}})
+	it := a.item(stock.Pantry, "Dishwasher tablets")
+	mustContain(t, b.view(itemPath(it)), `<select name="section"`, `<option value="pantry" selected>Pantry</option>`,
+		`<option value="supplies">Supplies</option>`)
+	r := b.post(itemPath(it), url.Values{"name": {"Dishwasher tablets"}, "quantity": {"1"}, "category": {"Cleaning"},
+		"section": {"supplies"}})
+	if want := "/supplies#item-" + strconv.FormatInt(it.ID, 10); r.StatusCode != http.StatusSeeOther || r.Header.Get("Location") != want {
+		t.Fatalf("save: %s %s, want %s", r.Status, r.Header.Get("Location"), want)
+	}
+	if moved := a.item(stock.Supplies, "Dishwasher tablets"); moved.ID != it.ID || moved.Category != "Cleaning" {
+		t.Errorf("moved %+v", moved)
+	}
+}
+
+func TestMoveOntoTheSameProductFromTheEditPage(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Supplies, url.Values{"name": {"Descaler"}, "expires_on": {"2026-11-14"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Descaler"}, "quantity": {"2"}, "expires_on": {"2026-11-14"}})
+	target, it := a.item(stock.Supplies, "Descaler"), a.item(stock.Pantry, "Descaler")
+	r := b.post(itemPath(it), url.Values{"name": {"Descaler"}, "quantity": {"2"}, "expires_on": {"2026-11-14"},
+		"section": {"supplies"}})
+	if want := "/supplies#item-" + strconv.FormatInt(target.ID, 10); r.Header.Get("Location") != want {
+		t.Errorf("redirect %s, want %s", r.Header.Get("Location"), want)
+	}
+	if got := a.item(stock.Supplies, "Descaler").Quantity; got != 3*stock.One {
+		t.Errorf("quantity %v", got)
+	}
+}
+
+func TestMoveToAnUnknownSection(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}})
+	it := a.item(stock.Pantry, "Rice")
+	r := b.post(itemPath(it), url.Values{"name": {"Rice"}, "quantity": {"4"}, "section": {"garage"}})
+	if r.StatusCode != http.StatusBadRequest {
+		t.Fatalf("save: %s", r.Status)
+	}
+	mustContain(t, r.body, "Choose one of the sections.", `name="quantity" value="4"`)
+	if got := a.item(stock.Pantry, "Rice").Quantity; got != stock.One {
+		t.Errorf("changed anyway: %v", got)
+	}
+}

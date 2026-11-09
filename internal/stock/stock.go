@@ -44,6 +44,7 @@ var (
 	ErrNotFound   = errors.New("no such item")
 	ErrEmptyName  = errors.New("an item needs a name")
 	ErrQuantity   = errors.New("the quantity must be above 0, with at most one decimal")
+	ErrSection    = errors.New("no such section")
 	ErrOpenedDays = errors.New("the days an item lasts once opened must be a whole number of at least 1")
 )
 
@@ -192,19 +193,10 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	now := s.Now().Unix()
 	var id int64
 	err := s.inTx(ctx, func(tx *sql.Tx) error {
-		if v.OpenedOn.IsZero() {
-			err := tx.QueryRowContext(ctx, `
-				UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
-				WHERE id = (SELECT id FROM stock_item
-					WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
-				RETURNING id`,
-				v.Quantity, userID, now, section, nameKey(v.Name), date(v.ExpiresOn)).Scan(&id)
-			if err == nil {
-				return remember(ctx, tx, section, v)
-			}
-			if !errors.Is(err, sql.ErrNoRows) {
-				return err
-			}
+		var merged bool
+		var err error
+		if id, merged, err = mergeInto(ctx, tx, section, userID, now, v); err != nil || merged {
+			return err
 		}
 		res, err := tx.ExecContext(ctx, `
 			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
@@ -223,26 +215,69 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	return id, err
 }
 
-// Update replaces the values of a row of the section, changed by the user.
-func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v Values) error {
+// Update replaces the values of a row of the section, changed by the user, and keeps it in the section to, moving it
+// there if it is another one. Moved unopened, it is added to an unopened row of to with the same name and expiry date,
+// as Add does. It returns the id the row ends up with.
+func (s *Store) Update(ctx context.Context, section Section, id, userID int64, v Values, to Section) (int64, error) {
 	if err := check(&v); err != nil {
-		return err
+		return 0, err
 	}
-	return s.inTx(ctx, func(tx *sql.Tx) error {
+	if !slices.Contains(Sections, to) {
+		return 0, ErrSection
+	}
+	now := s.Now().Unix()
+	err := s.inTx(ctx, func(tx *sql.Tx) error {
+		if to != section {
+			target, merged, err := mergeInto(ctx, tx, to, userID, now, v)
+			if err != nil {
+				return err
+			}
+			if merged {
+				res, err := tx.ExecContext(ctx, "DELETE FROM stock_item WHERE id = ? AND section = ?", id, section)
+				if err != nil {
+					return err
+				}
+				id = target
+				return oneRow(res)
+			}
+		}
 		res, err := tx.ExecContext(ctx, `
-			UPDATE stock_item SET name = ?, name_key = ?, quantity_tenths = ?, unit = ?, category = ?, location = ?,
-				expires_on = ?, opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
+			UPDATE stock_item SET section = ?, name = ?, name_key = ?, quantity_tenths = ?, unit = ?, category = ?,
+				location = ?, expires_on = ?, opened_on = ?, opened_days = ?, changed_by = ?, changed_at = ?
 			WHERE id = ? AND section = ?`,
-			v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
-			days(v.OpenedDays), userID, s.Now().Unix(), id, section)
+			to, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
+			days(v.OpenedDays), userID, now, id, section)
 		if err != nil {
 			return err
 		}
 		if err := oneRow(res); err != nil {
 			return err
 		}
-		return remember(ctx, tx, section, v)
+		return remember(ctx, tx, to, v)
 	})
+	return id, err
+}
+
+// mergeInto adds v's quantity to an unopened row of the section with v's name and expiry date, when v isn't opened and
+// there is one, remembering v's product; it returns that row's id and whether it did.
+func mergeInto(ctx context.Context, tx *sql.Tx, section Section, userID, now int64, v Values) (int64, bool, error) {
+	if !v.OpenedOn.IsZero() {
+		return 0, false, nil
+	}
+	var id int64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE stock_item SET quantity_tenths = quantity_tenths + ?, changed_by = ?, changed_at = ?
+		WHERE id = (SELECT id FROM stock_item
+			WHERE section = ? AND name_key = ? AND expires_on IS ? AND opened_on IS NULL ORDER BY id LIMIT 1)
+		RETURNING id`,
+		v.Quantity, userID, now, section, nameKey(v.Name), date(v.ExpiresOn)).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return id, true, remember(ctx, tx, section, v)
 }
 
 // remember records v's product as the section's latest use of its name.

@@ -138,7 +138,7 @@ func TestItemWithACategory(t *testing.T) {
 	if it := f.get(Pantry, id); it.Category != "Fresh" {
 		t.Errorf("category %q", it.Category)
 	}
-	if err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Milk", Quantity: 1 * One, Category: "Dairy"}); err != nil {
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Milk", Quantity: 1 * One, Category: "Dairy"}, Pantry); err != nil {
 		t.Fatal(err)
 	}
 	if it := f.get(Pantry, id); it.Category != "Dairy" {
@@ -236,14 +236,14 @@ func TestChangeTheLocation(t *testing.T) {
 	f := newFixture(t)
 	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One, Location: "Pantry"})
 	f.now = f.now.Add(time.Hour)
-	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "Passata", Quantity: 3 * One, Location: "Cellar"}); err != nil {
+	if _, err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "Passata", Quantity: 3 * One, Location: "Cellar"}, Pantry); err != nil {
 		t.Fatal(err)
 	}
 	it := f.get(Pantry, id)
 	if it.Location != "Cellar" || it.ChangedBy != "marco" || !it.ChangedAt.Equal(f.now) || it.CreatedBy != "anna" {
 		t.Errorf("got %+v", it)
 	}
-	if err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "", Quantity: 3 * One}); !errors.Is(err, ErrEmptyName) {
+	if _, err := f.stock.Update(ctx, Pantry, id, f.marco.ID, Values{Name: "", Quantity: 3 * One}, Pantry); !errors.Is(err, ErrEmptyName) {
 		t.Errorf("empty name: %v", err)
 	}
 }
@@ -481,7 +481,7 @@ func TestBuySomethingAgain(t *testing.T) {
 func TestProductKeepsTheLastValues(t *testing.T) {
 	f := newFixture(t)
 	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Pantry"})
-	if err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Passata", Quantity: 1 * One, Location: "Cellar", OpenedDays: 4}); err != nil {
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Passata", Quantity: 1 * One, Location: "Cellar", OpenedDays: 4}, Pantry); err != nil {
 		t.Fatal(err)
 	}
 	if p, _, _ := f.stock.Product(ctx, Pantry, "Passata"); p.Location != "Cellar" || p.OpenedDays != 4 {
@@ -665,5 +665,90 @@ func TestSearch(t *testing.T) {
 		if err != nil || !slices.Equal(got, c.want) {
 			t.Errorf("%s: %q, %v, want %q", c.name, got, err, c.want)
 		}
+	}
+}
+
+func TestMoveToTheRightSection(t *testing.T) {
+	f := newFixture(t)
+	v := Values{Name: "Dishwasher tablets", Quantity: 2 * One, Unit: "boxes", Category: "Cleaning", Location: "Under the sink",
+		ExpiresOn: day(2027, 6, 30)}
+	id := f.add(Pantry, v)
+	f.now = f.now.Add(time.Hour)
+	got, err := f.stock.Update(ctx, Pantry, id, f.marco.ID, v, Supplies)
+	if err != nil || got != id {
+		t.Fatalf("move: %d, %v", got, err)
+	}
+	if items := f.list(Pantry); len(items) != 0 {
+		t.Errorf("still in the pantry: %v", items)
+	}
+	it := f.get(Supplies, id)
+	if it.Values != v || it.CreatedBy != "anna" || it.ChangedBy != "marco" || !it.ChangedAt.Equal(f.now) {
+		t.Errorf("moved: %+v", it)
+	}
+}
+
+func TestMoveOntoTheSameProduct(t *testing.T) {
+	f := newFixture(t)
+	target := f.add(Supplies, Values{Name: "Descaler", Quantity: 1 * One, Location: "Under the sink", ExpiresOn: day(2026, 11, 14)})
+	id := f.add(Pantry, Values{Name: "descaler", Quantity: 2 * One, Location: "Pantry", ExpiresOn: day(2026, 11, 14)})
+	got, err := f.stock.Update(ctx, Pantry, id, f.anna.ID,
+		Values{Name: "descaler", Quantity: 2 * One, Location: "Pantry", ExpiresOn: day(2026, 11, 14)}, Supplies)
+	if err != nil || got != target {
+		t.Fatalf("move: %d, %v, want %d", got, err, target)
+	}
+	if items := f.list(Pantry); len(items) != 0 {
+		t.Errorf("still in the pantry: %v", items)
+	}
+	items := f.list(Supplies)
+	if len(items) != 1 || items[0].ID != target || items[0].Quantity != 3*One || items[0].Location != "Under the sink" {
+		t.Errorf("supplies: %+v", items)
+	}
+}
+
+func TestOpenedRowMovesApart(t *testing.T) {
+	f := newFixture(t)
+	f.add(Supplies, Values{Name: "Descaler", Quantity: 1 * One, ExpiresOn: day(2026, 11, 14)})
+	v := Values{Name: "Descaler", Quantity: 1 * One, ExpiresOn: day(2026, 11, 14), OpenedOn: day(2026, 11, 1)}
+	id := f.add(Pantry, v)
+	if got, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, v, Supplies); err != nil || got != id {
+		t.Fatalf("move: %d, %v", got, err)
+	}
+	if items := f.list(Supplies); len(items) != 2 {
+		t.Errorf("supplies: %+v", items)
+	}
+}
+
+func TestSuggestedInTheNewSection(t *testing.T) {
+	f := newFixture(t)
+	v := Values{Name: "Dishwasher tablets", Quantity: 1 * One, Category: "Cleaning"}
+	id := f.add(Pantry, v)
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, v, Supplies); err != nil {
+		t.Fatal(err)
+	}
+	if p, found, err := f.stock.Product(ctx, Supplies, "Dishwasher tablets"); err != nil || !found || p.Category != "Cleaning" {
+		t.Errorf("product %+v %v %v", p, found, err)
+	}
+}
+
+func TestEditAndMoveTogether(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Detergent", Quantity: 1 * One})
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Detergent", Quantity: 2 * One}, Supplies); err != nil {
+		t.Fatal(err)
+	}
+	if it := f.get(Supplies, id); it.Quantity != 2*One {
+		t.Errorf("quantity %v", it.Quantity)
+	}
+}
+
+func TestMoveToAnUnknownSection(t *testing.T) {
+	f := newFixture(t)
+	v := Values{Name: "Rice", Quantity: 1 * One}
+	id := f.add(Pantry, v)
+	if _, err := f.stock.Update(ctx, Pantry, id, f.anna.ID, v, "garage"); !errors.Is(err, ErrSection) {
+		t.Errorf("err %v", err)
+	}
+	if items := f.list(Pantry); len(items) != 1 {
+		t.Errorf("pantry: %v", items)
 	}
 }
