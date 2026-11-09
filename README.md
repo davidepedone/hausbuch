@@ -116,8 +116,9 @@ when releasing (see [Releasing](#releasing)).
 
 ## Development
 
-Requirements: Go (the version in `go.mod`), [golangci-lint](https://golangci-lint.run/) v2, `make` and `curl`. The
-Tailwind CSS CLI is downloaded by `make` into `bin/`.
+Requirements: Go (the version in `go.mod`), [golangci-lint](https://golangci-lint.run/) v2, `make`, `curl`, and
+Chrome or Chromium, which the tests of the pages' scripts drive. The Tailwind CSS CLI is downloaded by `make` into
+`bin/`.
 
 ```sh
 make check   # lint, tests and build, as in CI

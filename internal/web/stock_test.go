@@ -500,3 +500,85 @@ func TestMoveToAnUnknownSection(t *testing.T) {
 		t.Errorf("changed anyway: %v", got)
 	}
 }
+
+func TestMoveFromTheList(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Pasta"}, "quantity": {"3"}, "location": {"Cellar"}, "expires_on": {"2027-05-31"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Rice"}, "location": {"Kitchen"}})
+	it := a.item(stock.Pantry, "Pasta")
+	mustContain(t, b.view("/pantry"), `href="`+itemPath(it)+`/move"`)
+	// Default quantity, locations suggested.
+	mustContain(t, b.view(itemPath(it)+"/move"), "Move Pasta", "3 in Cellar", `name="quantity" value="1"`,
+		`<option value="Cellar">`, `<option value="Kitchen">`)
+	r := b.post(itemPath(it)+"/move", url.Values{"quantity": {"2"}, "location": {"Kitchen"}})
+	if r.StatusCode != http.StatusSeeOther {
+		t.Fatalf("move: %s", r.Status)
+	}
+	items, err := a.stock.List(context.Background(), stock.Pantry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var moved stock.Item
+	for _, i := range items {
+		if i.Name == "Pasta" && i.Location == "Kitchen" {
+			moved = i
+		}
+	}
+	if moved.Quantity != 2*stock.One || a.stockQuantity(it) != stock.One {
+		t.Fatalf("rows: %+v", items)
+	}
+	if want := "/pantry#item-" + strconv.FormatInt(moved.ID, 10); r.Header.Get("Location") != want {
+		t.Errorf("redirect %s, want %s", r.Header.Get("Location"), want)
+	}
+	// Moving the rest onto it lands on the receiving row.
+	r = b.post(itemPath(it)+"/move", url.Values{"quantity": {"1"}, "location": {"kitchen"}})
+	if want := "/pantry#item-" + strconv.FormatInt(moved.ID, 10); r.Header.Get("Location") != want {
+		t.Errorf("redirect %s, want %s", r.Header.Get("Location"), want)
+	}
+	if got := a.item(stock.Pantry, "Pasta"); got.ID != moved.ID || got.Quantity != 3*stock.One {
+		t.Errorf("got %+v", got)
+	}
+}
+
+// stockQuantity returns the quantity a row has now.
+func (a *testApp) stockQuantity(it stock.Item) stock.Quantity {
+	a.t.Helper()
+	got, err := a.stock.Get(context.Background(), it.Section, it.ID)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	return got.Quantity
+}
+
+func TestDefaultQuantityOfAPart(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}, "quantity": {"0,5"}})
+	mustContain(t, b.view(itemPath(a.item(stock.Pantry, "Flour"))+"/move"), `name="quantity" value="0.5"`)
+}
+
+func TestMoveRefused(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Pasta"}, "quantity": {"3"}, "location": {"Cellar"}})
+	it := a.item(stock.Pantry, "Pasta")
+	for _, c := range []struct {
+		quantity, location, msg string
+	}{
+		{"4", "Kitchen", "The quantity must be above 0 and at most 3"},
+		{"0", "Kitchen", "The quantity must be above 0 and at most 3"},
+		{"1.25", "Kitchen", "The quantity must be above 0 and at most 3"},
+		{"two", "Kitchen", "The quantity must be above 0 and at most 3"},
+		{"1", "cellar", "It&#39;s already kept there."},
+	} {
+		r := b.post(itemPath(it)+"/move", url.Values{"quantity": {c.quantity}, "location": {c.location}})
+		if r.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s to %s: %s", c.quantity, c.location, r.Status)
+		}
+		mustContain(t, r.body, c.msg, `name="quantity" value="`+c.quantity+`"`, `name="location" value="`+c.location+`"`)
+	}
+	if got := a.item(stock.Pantry, "Pasta"); got.Quantity != 3*stock.One || got.Location != "Cellar" {
+		t.Errorf("changed anyway: %+v", got)
+	}
+}

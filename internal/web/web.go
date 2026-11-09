@@ -84,7 +84,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		templates: map[string]*template.Template{},
 		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search", "section", "item"} {
+		"revision", "compare", "search", "section", "item", "move"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
