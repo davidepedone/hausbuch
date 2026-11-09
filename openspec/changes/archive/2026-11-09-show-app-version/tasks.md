@@ -10,7 +10,7 @@
 
 ## 3. Integration
 
-- [ ] 3.1 With `make check` green, at 390px and 1280px and in the app added to a phone's home screen: the footer fits without overflowing, and "What's new" and "Report a problem" open over the app and return to it when closed; verify every step behaves as the spec says
+- [x] 3.1 With `make check` green, at 390px and 1280px and in the app added to a phone's home screen: the footer fits without overflowing, and "What's new" and "Report a problem" open over the app and return to it when closed; verify every step behaves as the spec says
 
 ## Workflow follow-up
 
