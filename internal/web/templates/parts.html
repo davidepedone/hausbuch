@@ -1,5 +1,9 @@
 {{/* Parts shared by several pages. */}}
 
+{{/* The list filter's parts; listfilter.js describes the markup it works on. */}}
+{{define "allChip"}}<button type="button" data-filter-all aria-pressed="true" class="chip">All</button>{{end}}
+{{define "nothingMatches"}}<p data-filter-none hidden class="text-stone-500">Nothing matches.</p>{{end}}
+
 {{/* diff shows the lines of a body diff: added, removed, unchanged. Inside <pre> every line break of the template
      would show, so the lines are written without any. */}}
 {{define "diff"}}

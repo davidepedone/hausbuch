@@ -268,7 +268,7 @@ func TestListNewestChangeFirstWithTypeFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all, err := f.pages.List(ctx, "")
+	all, err := f.pages.List(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,20 +278,13 @@ func TestListNewestChangeFirstWithTypeFilter(t *testing.T) {
 	if all[0].ChangedBy != "Marco" || !all[0].ChangedAt.Equal(f.now) || all[0].Type != Recipe {
 		t.Errorf("first = %+v", all[0])
 	}
-	recipes, err := f.pages.List(ctx, Recipe)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []string{"Pasta", "Pizza"}; !slices.Equal(titles(recipes), want) {
-		t.Errorf("recipes = %q, want %q", titles(recipes), want)
-	}
 }
 
 func TestListOrdersChangesInTheSameSecond(t *testing.T) {
 	f := newFixture(t)
 	f.create(f.anna, "First", "")
 	f.create(f.anna, "Second", "")
-	all, _ := f.pages.List(ctx, "")
+	all, _ := f.pages.List(ctx)
 	if want := []string{"Second", "First"}; !slices.Equal(titles(all), want) {
 		t.Errorf("list = %q, want %q", titles(all), want)
 	}
@@ -320,7 +313,7 @@ func TestDeleteAndRestore(t *testing.T) {
 	if _, err := f.pages.Get(ctx, sauce); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Get deleted = %v, want ErrNotFound", err)
 	}
-	if all, _ := f.pages.List(ctx, ""); !slices.Equal(titles(all), []string{"Pasta"}) {
+	if all, _ := f.pages.List(ctx); !slices.Equal(titles(all), []string{"Pasta"}) {
 		t.Errorf("list = %q", titles(all))
 	}
 	if got := f.resolve("Tomato sauce"); got != 0 {

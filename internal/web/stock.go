@@ -34,12 +34,12 @@ func itemURL(it stock.Item) string {
 
 // itemForm is an item's form as the user filled it in, kept as text so that a refused form shows what was entered.
 type itemForm struct {
-	Name, Quantity, Unit, Location, ExpiresOn, OpenedOn, OpenedDays string
-	Error                                                           string
+	Name, Quantity, Unit, Category, Location, ExpiresOn, OpenedOn, OpenedDays string
+	Error                                                                     string
 }
 
 func formOf(v stock.Values) itemForm {
-	f := itemForm{Name: v.Name, Quantity: v.Quantity.String(), Unit: v.Unit, Location: v.Location,
+	f := itemForm{Name: v.Name, Quantity: v.Quantity.String(), Unit: v.Unit, Category: v.Category, Location: v.Location,
 		ExpiresOn: inputDate(v.ExpiresOn), OpenedOn: inputDate(v.OpenedOn)}
 	if v.OpenedDays > 0 {
 		f.OpenedDays = strconv.Itoa(v.OpenedDays)
@@ -49,7 +49,7 @@ func formOf(v stock.Values) itemForm {
 
 func readForm(r *http.Request) itemForm {
 	return itemForm{Name: r.PostFormValue("name"), Quantity: r.PostFormValue("quantity"), Unit: r.PostFormValue("unit"),
-		Location: r.PostFormValue("location"), ExpiresOn: r.PostFormValue("expires_on"),
+		Category: r.PostFormValue("category"), Location: r.PostFormValue("location"), ExpiresOn: r.PostFormValue("expires_on"),
 		OpenedOn: r.PostFormValue("opened_on"), OpenedDays: r.PostFormValue("opened_days")}
 }
 
@@ -57,7 +57,7 @@ var errDate = errors.New("bad date")
 
 // values turns the form into values, reporting a field that isn't a number or a date.
 func (f itemForm) values() (stock.Values, error) {
-	v := stock.Values{Name: f.Name, Unit: f.Unit, Location: f.Location}
+	v := stock.Values{Name: f.Name, Unit: f.Unit, Category: f.Category, Location: f.Location}
 	var err error
 	if v.Quantity, err = stock.ParseQuantity(f.Quantity); err != nil {
 		return v, err
@@ -96,21 +96,31 @@ func refusal(err error) string {
 }
 
 type sectionData struct {
-	Section   stock.Section
-	Items     []stock.Item
-	Names     []string // product names used, for suggestions
-	Locations []string
-	Form      itemForm
-	Removed   *stock.Item // the row just removed, to offer undoing it
+	Section    stock.Section
+	Groups     []stock.Group
+	Names      []string // product names used, for suggestions
+	Categories []string
+	Locations  []string
+	Form       itemForm
+	Removed    *stock.Item // the row just removed, to offer undoing it
+}
+
+// Grouped tells whether some row has a category, so that the list shows its groups and chips.
+func (d sectionData) Grouped() bool {
+	return len(d.Groups) > 1 || len(d.Groups) == 1 && d.Groups[0].Key != ""
 }
 
 func (s *server) sectionData(r *http.Request, sec stock.Section) (sectionData, error) {
 	d := sectionData{Section: sec}
-	var err error
-	if d.Items, err = s.stock.List(r.Context(), sec); err != nil {
+	items, err := s.stock.List(r.Context(), sec)
+	if err != nil {
 		return d, err
 	}
+	d.Groups = stock.GroupItems(items)
 	if d.Names, err = s.stock.Names(r.Context(), sec); err != nil {
+		return d, err
+	}
+	if d.Categories, err = s.stock.Categories(r.Context(), sec); err != nil {
 		return d, err
 	}
 	d.Locations, err = s.stock.Locations(r.Context(), sec)
@@ -150,9 +160,10 @@ func (s *server) addItem(w http.ResponseWriter, r *http.Request, sec stock.Secti
 }
 
 type itemData struct {
-	Item      stock.Item
-	Locations []string
-	Form      itemForm
+	Item       stock.Item
+	Categories []string
+	Locations  []string
+	Form       itemForm
 }
 
 // itemFromPath returns the row named by the path, answering 404 when it isn't one of the section's.
@@ -175,12 +186,16 @@ func (s *server) itemFromPath(w http.ResponseWriter, r *http.Request, sec stock.
 }
 
 func (s *server) renderItem(w http.ResponseWriter, r *http.Request, status int, it stock.Item, form itemForm) {
-	locations, err := s.stock.Locations(r.Context(), it.Section)
+	d := itemData{Item: it, Form: form}
+	var err error
+	if d.Categories, err = s.stock.Categories(r.Context(), it.Section); err == nil {
+		d.Locations, err = s.stock.Locations(r.Context(), it.Section)
+	}
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	s.render(w, r, status, "item", itemData{Item: it, Locations: locations, Form: form})
+	s.render(w, r, status, "item", d)
 }
 
 func (s *server) editItem(w http.ResponseWriter, r *http.Request, sec stock.Section) {
@@ -285,8 +300,8 @@ func (s *server) restoreItem(w http.ResponseWriter, r *http.Request, sec stock.S
 	s.answerItems(w, r, sec, nil)
 }
 
-// product answers the add form's name field with the location and shelf life the product last had, or with nothing
-// for a name never used.
+// product answers the add form's name field with the category, location and shelf life the product last had, or with
+// nothing for a name never used.
 func (s *server) product(w http.ResponseWriter, r *http.Request, sec stock.Section) {
 	p, found, err := s.stock.Product(r.Context(), sec, r.URL.Query().Get("name"))
 	if err != nil {
@@ -297,7 +312,7 @@ func (s *server) product(w http.ResponseWriter, r *http.Request, sec stock.Secti
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	form := formOf(stock.Values{Location: p.Location, OpenedDays: p.OpenedDays})
+	form := formOf(stock.Values{Category: p.Category, Location: p.Location, OpenedDays: p.OpenedDays})
 	s.renderPart(w, "section", "productFields", sectionData{Section: sec, Form: form})
 }
 

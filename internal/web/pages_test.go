@@ -260,7 +260,7 @@ func TestHomeListsPagesNewestFirst(t *testing.T) {
 	mustContain(t, html, "Blank · changed "+now.Local().Format("2 Jan 2006, 15:04")+" by Marco")
 }
 
-func TestHomeFiltersByType(t *testing.T) {
+func TestChipsOfThePageList(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	b.create("Irrigation", "")
@@ -269,14 +269,17 @@ func TestHomeFiltersByType(t *testing.T) {
 		page.Content{Title: "Pizza", Type: page.Recipe, Language: "en"}); err != nil {
 		t.Fatal(err)
 	}
-	html := b.view("/?type=recipe")
-	if !strings.Contains(html, ">Pizza<") || strings.Contains(html, ">Irrigation<") {
-		t.Errorf("recipes:\n%s", html)
+	html := b.view("/")
+	mustContain(t, html, `data-filter-all aria-pressed="true"`, `data-filter-none hidden`,
+		`<li data-entry data-chip="recipe">`, `<li data-entry data-chip="blank">`,
+		`<script src="/static/listfilter.js" defer>`)
+	for _, typ := range page.Types {
+		mustContain(t, html, `data-filter-chip="`+string(typ)+`" aria-pressed="false" class="chip">`)
 	}
-	mustContain(t, html, `<a href="/?type=recipe" class="flex flex-col items-center gap-1 rounded-lg border px-3 py-3 font-medium border-sage-700 bg-sage-700 text-white" aria-current="page">`,
-		`<a href="/" class="text-sm text-sage-700 underline hover:text-sage-800">Show all</a>`)
-	if html := b.view("/?type=nonsense"); !strings.Contains(html, ">Pizza<") || !strings.Contains(html, ">Irrigation<") {
-		t.Errorf("unknown type doesn't list all:\n%s", html)
+	_, chips, _ := strings.Cut(html, `aria-label="Page types"`)
+	chips, _, _ = strings.Cut(chips, "</div>")
+	if n := strings.Count(chips, "<svg"); n != len(page.Types) {
+		t.Errorf("%d chip icons", n)
 	}
 }
 

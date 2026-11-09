@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -128,6 +129,20 @@ func TestSuppliesKeptApartFromFood(t *testing.T) {
 	}
 	if items := f.list(Pantry); len(items) != 0 {
 		t.Errorf("pantry: %v", items)
+	}
+}
+
+func TestItemWithACategory(t *testing.T) {
+	f := newFixture(t)
+	id := f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, Category: " Fresh "})
+	if it := f.get(Pantry, id); it.Category != "Fresh" {
+		t.Errorf("category %q", it.Category)
+	}
+	if err := f.stock.Update(ctx, Pantry, id, f.anna.ID, Values{Name: "Milk", Quantity: 1 * One, Category: "Dairy"}); err != nil {
+		t.Fatal(err)
+	}
+	if it := f.get(Pantry, id); it.Category != "Dairy" {
+		t.Errorf("after update %q", it.Category)
 	}
 }
 
@@ -302,7 +317,7 @@ func TestThrowSomethingAway(t *testing.T) {
 
 func TestUndo(t *testing.T) {
 	f := newFixture(t)
-	v := Values{Name: "Passata", Quantity: 2 * One, Unit: "bottles", Location: "Pantry", ExpiresOn: day(2027, 9, 30),
+	v := Values{Name: "Passata", Quantity: 2 * One, Unit: "bottles", Category: "Long-life", Location: "Pantry", ExpiresOn: day(2027, 9, 30),
 		OpenedOn: day(2026, 11, 5), OpenedDays: 4}
 	id := f.add(Pantry, v)
 	it, err := f.stock.Remove(ctx, Pantry, id)
@@ -335,7 +350,8 @@ func TestOpenASingleItem(t *testing.T) {
 
 func TestOpenOneOfSeveral(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One, ExpiresOn: day(2027, 9, 30), OpenedDays: 4})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 3 * One, Category: "Long-life", ExpiresOn: day(2027, 9, 30),
+		OpenedDays: 4})
 	if err := f.stock.Open(ctx, Pantry, id, f.anna.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +365,7 @@ func TestOpenOneOfSeveral(t *testing.T) {
 		t.Errorf("rest: %+v", rest)
 	}
 	if opened.Quantity != 1*One || !opened.OpenedOn.Equal(day(2026, 11, 6)) || !opened.ExpiresOn.Equal(day(2027, 9, 30)) ||
-		opened.OpenedDays != 4 {
+		opened.OpenedDays != 4 || opened.Category != "Long-life" {
 		t.Errorf("opened: %+v", opened)
 	}
 }
@@ -444,12 +460,14 @@ func TestWarnings(t *testing.T) {
 
 func TestBuySomethingAgain(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Location: "Pantry, top shelf", OpenedDays: 4})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Category: "Long-life", Location: "Pantry, top shelf",
+		OpenedDays: 4})
 	if _, err := f.stock.Remove(ctx, Pantry, id); err != nil {
 		t.Fatal(err)
 	}
 	p, found, err := f.stock.Product(ctx, Pantry, "passata")
-	if err != nil || !found || p != (Product{Name: "Passata", Location: "Pantry, top shelf", OpenedDays: 4}) {
+	if err != nil || !found ||
+		p != (Product{Name: "Passata", Category: "Long-life", Location: "Pantry, top shelf", OpenedDays: 4}) {
 		t.Errorf("product %+v %v %v", p, found, err)
 	}
 	if got, _ := f.stock.Names(ctx, Pantry); !slices.Equal(got, []string{"Passata"}) {
@@ -473,7 +491,7 @@ func TestProductKeepsTheLastValues(t *testing.T) {
 
 func TestSuggestionsStayInTheirSection(t *testing.T) {
 	f := newFixture(t)
-	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One, Location: "Bathroom"})
+	f.add(Medicines, Values{Name: "Paracetamol", Quantity: 1 * One, Category: "Pain", Location: "Bathroom"})
 	if _, found, _ := f.stock.Product(ctx, Pantry, "Paracetamol"); found {
 		t.Error("found in the pantry")
 	}
@@ -482,6 +500,21 @@ func TestSuggestionsStayInTheirSection(t *testing.T) {
 	}
 	if got, _ := f.stock.Locations(ctx, Pantry); len(got) != 0 {
 		t.Errorf("locations %v", got)
+	}
+	if got, _ := f.stock.Categories(ctx, Pantry); len(got) != 0 {
+		t.Errorf("categories %v", got)
+	}
+}
+
+func TestCategorySuggestions(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Rice", Quantity: 1 * One, Category: "Long-life"})
+	f.add(Pantry, Values{Name: "Milk", Quantity: 1 * One, Category: " Fresh "})
+	f.add(Pantry, Values{Name: "Yogurt", Quantity: 1 * One, Category: "fresh"})
+	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
+	got, err := f.stock.Categories(ctx, Pantry)
+	if err != nil || len(got) != 2 || nameKey(got[0]) != "fresh" || got[1] != "Long-life" {
+		t.Errorf("categories %q %v", got, err)
 	}
 }
 
@@ -567,5 +600,35 @@ func TestOpenAPart(t *testing.T) {
 	}
 	if items := f.list(Pantry); len(items) != 1 {
 		t.Errorf("rows: %v", items)
+	}
+}
+
+func TestGroupItems(t *testing.T) {
+	item := func(name, category string) Item { return Item{Values: Values{Name: name, Category: category}} }
+	groups := func(items ...Item) string {
+		var out []string
+		for _, g := range GroupItems(items) {
+			names := []string{}
+			for _, it := range g.Items {
+				names = append(names, it.Name)
+			}
+			out = append(out, g.Key+"/"+g.Label+":"+strings.Join(names, ","))
+		}
+		return strings.Join(out, " ")
+	}
+	for _, c := range []struct {
+		name  string
+		items []Item
+		want  string
+	}{
+		{"grouped list", []Item{item("Milk", "Fresh"), item("Passata", "Long-life"), item("Rice", "Long-life"), item("Salt", "")},
+			"fresh/Fresh:Milk long-life/Long-life:Passata,Rice /:Salt"},
+		{"other group last", []Item{item("Salt", ""), item("Rice", "Long-life")}, "long-life/Long-life:Rice /:Salt"},
+		{"same category, different case", []Item{item("Milk", "Fresh"), item("Yogurt", "fresh")}, "fresh/Fresh:Milk,Yogurt"},
+		{"no categories", []Item{item("Rice", ""), item("Salt", "")}, "/:Rice,Salt"},
+	} {
+		if got := groups(c.items...); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
 	}
 }

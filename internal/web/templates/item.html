@@ -22,6 +22,11 @@
       <input name="unit" value="{{.Form.Unit}}" class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
   </div>
+  <label class="block">
+    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
+           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
   <div class="grid gap-4 sm:grid-cols-2">
     <label class="block">
       <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
@@ -34,6 +39,7 @@
              class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
   </div>
+  <datalist id="categories">{{range .Categories}}<option value="{{.}}">{{end}}</datalist>
   <datalist id="locations">{{range .Locations}}<option value="{{.}}">{{end}}</datalist>
   {{template "expiryField" .Form}}
   <label class="block">

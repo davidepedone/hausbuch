@@ -60,6 +60,8 @@ var funcs = template.FuncMap{
 	"expiryNote": expiryNote,
 	"expired":    func(s stock.State) bool { return s == stock.Expired },
 	"expiring":   func(s stock.State) bool { return s == stock.Expiring },
+	// lower is a category's key, as the list filter's chips name it.
+	"lower": strings.ToLower,
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health

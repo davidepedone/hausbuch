@@ -32,15 +32,10 @@ func newPageURL(title string) string { return "/pages/new?title=" + url.QueryEsc
 type homeData struct {
 	Warnings []stock.Item // expired and expiring items
 	Pages    []page.Page
-	Type     page.Type // the type filtered by, or empty
 }
 
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
-	t := page.Type(r.URL.Query().Get("type"))
-	if !slices.Contains(page.Types, t) {
-		t = ""
-	}
-	pages, err := s.pages.List(r.Context(), t)
+	pages, err := s.pages.List(r.Context())
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -50,7 +45,7 @@ func (s *server) home(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "home", homeData{Warnings: warnings, Pages: pages, Type: t})
+	s.render(w, r, http.StatusOK, "home", homeData{Warnings: warnings, Pages: pages})
 }
 
 type viewData struct {
