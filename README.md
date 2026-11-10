@@ -48,6 +48,7 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_MEDICINES_LEAD_DAYS` | how many days before their expiry date medicines are pointed out as expiring, at least 0 | `30` |
 | `HAUSBUCH_PANTRY_LEAD_DAYS` | the same for the pantry | `7` |
 | `HAUSBUCH_SUPPLIES_LEAD_DAYS` | the same for household supplies | `7` |
+| `HAUSBUCH_URL` | the address users open, such as `https://home.example.org`; with an HTTPS address users can sign in with passkeys (see [Passkeys](#passkeys)), and `user link` prints whole links | none: passwords only |
 | `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due and when an item has expired | `UTC` |
 
 ### Accounts
@@ -62,12 +63,29 @@ docker exec -it hausbuch /hausbuch user set-password anna
 docker exec -it hausbuch /hausbuch user disable anna             # also signs them out everywhere
 docker exec -it hausbuch /hausbuch user enable anna
 docker exec -it hausbuch /hausbuch user unlock anna              # after 3 wrong passwords in a row
+docker exec -it hausbuch /hausbuch user link anna                # a one-time sign-in link
 ```
 
 Replace `hausbuch` after `-it` with the container's name. Passwords are never given as arguments; without `-t` (no
 terminal) they are read from standard input instead, e.g. `echo "$PASSWORD" | docker exec -i …`.
 
 After 3 wrong passwords in a row a username is locked for 15 minutes, even with the right password.
+
+`user link` prints a link that signs the account in once, within 15 minutes; printing another one makes the earlier
+one invalid. Pass it on to set up a passkey on a new phone, or to get someone back in without resetting their
+password. Opening the link only shows whose account it is, with a button to sign in, so that a messenger's link
+preview doesn't use it up. Without `HAUSBUCH_URL` only its path is printed, to be appended to the usual address.
+
+### Passkeys
+
+With `HAUSBUCH_URL` set to an HTTPS address, users can sign in with a passkey, their device's fingerprint, face or
+screen lock, instead of the password. After signing in with the password, a user without a passkey is offered to
+create one; the account page lists their passkeys and adds or removes them. The password keeps working.
+
+Browsers allow passkeys only over HTTPS, or on `localhost`, so an installation reached over plain HTTP keeps signing
+in with passwords alone. A passkey belongs to the host name it was created under: set `HAUSBUCH_URL` once, to the
+address users actually open through the proxy, and don't change it, or the passkeys already created stop working
+(passwords and sign-in links don't).
 
 ### HTTPS
 

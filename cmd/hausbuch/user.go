@@ -23,11 +23,13 @@ const userUsage = `Usage:
   hausbuch user disable USERNAME               stop an account from signing in and end its sessions
   hausbuch user enable USERNAME                let a disabled account sign in again
   hausbuch user unlock USERNAME                lift the lock after repeated failed sign-ins
+  hausbuch user link USERNAME                  print a one-time sign-in link, valid for 15 minutes
 
 Passwords are asked for without echo, or read from standard input when it is not a terminal.
 `
 
-func runUser(ctx context.Context, store *user.Store, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+// runUser runs a user command; publicURL is HAUSBUCH_URL, or "" when not set.
+func runUser(ctx context.Context, store *user.Store, publicURL string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, userUsage)
 		return 2
@@ -49,6 +51,8 @@ func runUser(ctx context.Context, store *user.Store, args []string, stdin io.Rea
 		err = done(stdout, store.Enable(ctx, args[0]), "Enabled %s.", args[0])
 	case cmd == "unlock" && len(args) == 1:
 		err = done(stdout, store.Unlock(ctx, args[0]), "Unlocked %s.", args[0])
+	case cmd == "link" && len(args) == 1:
+		err = printLink(ctx, store, publicURL, args[0], stdout)
 	case cmd == "help":
 		fmt.Fprint(stdout, userUsage)
 	default:
@@ -80,6 +84,19 @@ func addUser(ctx context.Context, store *user.Store, username, displayName strin
 		return err
 	}
 	fmt.Fprintf(stdout, "Added %s (%s).\n", u.Username, u.DisplayName)
+	return nil
+}
+
+func printLink(ctx context.Context, store *user.Store, publicURL, username string, stdout io.Writer) error {
+	token, err := store.CreateLink(ctx, username)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "Sign-in link for %s, valid for %d minutes and for one sign-in:\n%s/link/%s\n",
+		username, int(user.LinkLifetime.Minutes()), strings.TrimRight(publicURL, "/"), token)
+	if publicURL == "" {
+		fmt.Fprintln(stdout, "Open it at this installation's address; set HAUSBUCH_URL to have it printed whole.")
+	}
 	return nil
 }
 

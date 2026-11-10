@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -10,8 +11,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
@@ -33,13 +37,39 @@ func newApp(t *testing.T) *testApp {
 
 // newAppAt starts the app running as version.
 func newAppAt(t *testing.T, version string) *testApp {
+	return startApp(t, version, false)
+}
+
+// newAppWithPasskeys starts the app with passkeys on, reached as localhost, where browsers allow them over HTTP.
+func newAppWithPasskeys(t *testing.T) *testApp {
+	return startApp(t, "dev", true)
+}
+
+func startApp(t *testing.T, version string, passkeys bool) *testApp {
 	t.Helper()
 	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "hausbuch.db"), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	users, pages, items := user.NewStore(database), page.NewStore(database), stock.NewStore(database)
-	srv := httptest.NewServer(NewHandler(users, pages, items, version))
+	srv := httptest.NewUnstartedServer(nil)
+	var config *webauthn.WebAuthn
+	if passkeys {
+		l, err := net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv.Listener.Close()
+		srv.Listener = l
+		if config, err = PasskeyConfig("http://localhost:" + strconv.Itoa(l.Addr().(*net.TCPAddr).Port)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	srv.Config.Handler = NewHandler(users, pages, items, version, config)
+	srv.Start()
+	if passkeys {
+		srv.URL = strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+	}
 	t.Cleanup(func() {
 		srv.Close()
 		_ = database.Close()
