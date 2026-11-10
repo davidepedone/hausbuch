@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davidepedone/hausbuch/internal/stock"
 )
@@ -53,6 +54,27 @@ func TestCheckTheRecipe(t *testing.T) {
 		`name="add" value="1" aria-label="Add Eggs" checked`,
 		`<input type="checkbox" name="add" value="2" aria-label="Add 50 g butter"`+"\n",
 		`name="name-0" value="200 g flour"`)
+}
+
+func TestAgeOfAMatchedRow(t *testing.T) {
+	a := newApp(t)
+	now := a.stockClock()
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}})
+	path := b.recipe("200 g flour")
+	for _, c := range []struct {
+		later time.Time
+		want  string
+	}{
+		{now.AddDate(0, 2, 0), "In the pantry: Flour · 1"},
+		{now.AddDate(0, 3, -1), "In the pantry: Flour · 1"},
+		{now.AddDate(0, 8, 0), `In the pantry: Flour · 1 · <span class="font-medium text-amber-700">changed 8 months ago</span>`},
+	} {
+		*now = c.later
+		if got := checked(t, b.view(path)); len(got) != 1 || got[0] != c.want {
+			t.Errorf("on %s: %q, want %q", c.later.Format(time.DateOnly), got, c.want)
+		}
+	}
 }
 
 func TestRecipeWithoutIngredients(t *testing.T) {

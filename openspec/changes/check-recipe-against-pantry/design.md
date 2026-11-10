@@ -55,6 +55,12 @@ a message and a 400, keeping the names typed. A ticked ingredient whose name was
 *Alternative considered*: an inline panel on the recipe page with htmx. The check is a short detour before shopping, and
 a page of its own works the same on a phone without any script.
 
+### Age of a row, in the web layer
+
+The three months and the "changed N months ago" are presentation of the row's `ChangedAt` against the stock's clock, so
+the handler wraps each matched row with the whole calendar months since it changed, kept only from three on. Any
+change counts, a "−" included, so a row in daily use never shows an age.
+
 ## Risks / Trade-offs
 
 - [One shared word matches too much: "Tomato sauce" finds a "Soy sauce" row, "1 tbsp oil" both "Olive oil" and

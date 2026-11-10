@@ -32,6 +32,18 @@ list, when it matches an entry not yet bought; otherwise as missing. Pages of ot
 - **WHEN** a user views a how-to page
 - **THEN** no "Check the pantry" is offered
 
+### Requirement: Age of a matched row
+On the check, a matched pantry row not changed for three months or more SHALL show how many whole months ago it last
+changed, as it may have been used up without the stock being updated.
+
+#### Scenario: Not changed for a while
+- **WHEN** the "Flour" row a recipe's "200 g flour" matches was last changed 8 months ago
+- **THEN** the check shows that the row changed 8 months ago
+
+#### Scenario: Changed recently
+- **WHEN** the "Flour" row a recipe's "200 g flour" matches was last changed 2 months ago
+- **THEN** the check shows no age for the row
+
 ### Requirement: Ingredients matched by their words
 An ingredient SHALL match a pantry row or an entry when, ignoring case, the two names share a word, a word being a run
 of letters and digits. Words holding a digit and filler words such as "a", "of", "the", "di" and "con" SHALL not count.

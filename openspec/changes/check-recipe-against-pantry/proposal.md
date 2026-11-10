@@ -9,7 +9,8 @@ both, so it can do the looking and leave only the choosing.
 ## What Changes
 
 - **"Check the pantry" on recipe pages**: a page listing the recipe's ingredients, the items under its "Ingredients"
-  heading, each shown as in the pantry (with where it is kept and how much there is), already on the shopping list, or missing.
+  heading, each shown as in the pantry (with where it is kept, how much there is and, when the row hasn't changed for three
+  months, how long ago it last did), already on the shopping list, or missing.
 - **Matching by name, ignoring case and quantities**: an ingredient is in the pantry when a pantry row's name and the
   ingredient share a word, leaving out numbers and filler words like "of" or "di", so "200 g flour" finds the "Flour"
   row and "1 tbsp oil" the "Olive oil" one. Only presence is checked, never whether there is enough.

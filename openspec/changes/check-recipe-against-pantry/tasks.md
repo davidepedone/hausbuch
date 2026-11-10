@@ -14,6 +14,9 @@
 - [x] 2.2 Add the form posting the ticked ingredients; verify web tests for "Add the missing ones", "Rename before
   adding", "Untick a missing one" and "Nothing ticked", and an entry merging with one already on the list
 
+- [x] 2.3 Show how many months ago a matched row last changed, from three months on; verify web tests for "Not changed
+  for a while" and "Changed recently"
+
 ## 3. Integration
 
 - [x] 3.1 With `make check` green, in the browser at 390px and at desktop width, check a recipe with found, listed and
