@@ -531,7 +531,7 @@ func TestSuggestionsStayInTheirSection(t *testing.T) {
 	if got, _ := f.stock.Locations(ctx, Pantry); len(got) != 0 {
 		t.Errorf("locations %v", got)
 	}
-	if got, _ := f.stock.Categories(ctx, Pantry); len(got) != 0 {
+	if got, _ := f.stock.Categories(ctx, Pantry); slices.Contains(got, "Pain") {
 		t.Errorf("categories %v", got)
 	}
 }
@@ -543,8 +543,27 @@ func TestCategorySuggestions(t *testing.T) {
 	f.add(Pantry, Values{Name: "Yogurt", Quantity: 1 * One, Category: "fresh"})
 	f.add(Pantry, Values{Name: "Salt", Quantity: 1 * One})
 	got, err := f.stock.Categories(ctx, Pantry)
-	if err != nil || len(got) != 2 || nameKey(got[0]) != "fresh" || got[1] != "Long-life" {
-		t.Errorf("categories %q %v", got, err)
+	want := []string{"Drinks", "Fresh", "Frozen", "Long-life"}
+	if err != nil || !slices.EqualFunc(got, want, func(a, b string) bool { return nameKey(a) == nameKey(b) }) {
+		t.Errorf("categories %q %v, want %q", got, err, want)
+	}
+}
+
+func TestCommonCategoriesInAnEmptySection(t *testing.T) {
+	f := newFixture(t)
+	got, err := f.stock.Categories(ctx, Supplies)
+	if want := []string{"Cleaning", "Laundry", "Paper & bags", "Personal care"}; err != nil || !slices.Equal(got, want) {
+		t.Errorf("categories %q %v, want %q", got, err, want)
+	}
+}
+
+func TestCommonAndOwnCategoriesTogether(t *testing.T) {
+	f := newFixture(t)
+	f.add(Pantry, Values{Name: "Pepper", Quantity: One, Category: "Spices"})
+	f.add(Pantry, Values{Name: "Milk", Quantity: One, Category: "fresh"})
+	got, err := f.stock.Categories(ctx, Pantry)
+	if want := []string{"Drinks", "fresh", "Frozen", "Long-life", "Spices"}; err != nil || !slices.Equal(got, want) {
+		t.Errorf("categories %q %v, want %q", got, err, want)
 	}
 }
 
