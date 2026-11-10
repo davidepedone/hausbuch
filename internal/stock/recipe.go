@@ -35,30 +35,35 @@ func Check(ingredients []string, rows []Item, entries []Entry) []Ingredient {
 	return checked
 }
 
-// matches reports whether every word of the shorter of two names is a word of the other, ignoring case.
+// matches reports whether two names share a word.
 func matches(a, b string) bool {
-	wa, wb := words(a), words(b)
-	if len(wa) > len(wb) {
-		wa, wb = wb, wa
-	}
-	if len(wa) == 0 {
-		return false
-	}
-	for w := range wa {
-		if !wb[w] {
-			return false
+	wb := words(b)
+	for w := range words(a) {
+		if wb[w] {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
-// words are a name's runs of letters and digits, lower-cased.
+// fillers are the English and Italian words too common in names to tell two products apart.
+var fillers = map[string]bool{
+	"a": true, "an": true, "and": true, "for": true, "in": true, "of": true, "or": true, "the": true, "to": true,
+	"with": true,
+	"al": true, "alla": true, "con": true, "d": true, "da": true, "dei": true, "del": true, "della": true, "delle": true,
+	"di": true, "e": true, "gli": true, "i": true, "il": true, "l": true, "la": true, "le": true, "lo": true, "o": true,
+	"per": true, "un": true, "una": true, "uno": true,
+}
+
+// words are a name's runs of letters and digits, lower-cased, without those holding a digit and the fillers.
 func words(name string) map[string]bool {
 	set := map[string]bool{}
 	for _, w := range strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	}) {
-		set[w] = true
+		if !fillers[w] && !strings.ContainsFunc(w, unicode.IsDigit) {
+			set[w] = true
+		}
 	}
 	return set
 }

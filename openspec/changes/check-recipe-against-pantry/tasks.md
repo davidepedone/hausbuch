@@ -5,7 +5,7 @@
 - [x] 1.1 Add `markdown.ListUnder`; verify tests for "Only the Ingredients list", "No ingredients", any heading level and
   case, nested and numbered lists, and `[[Title]]` links in an item
 - [x] 1.2 Add the word matching and `stock.Check`; verify tests for "In the pantry", "Missing", "Already on the list",
-  "Shorter ingredient", a bought entry not counting as on the list, and an ingredient with no words matching nothing
+  "Shorter ingredient", "Longer ingredient", "Filler words don't match", a bought entry not counting as on the list, and an ingredient with no words matching nothing
 
 ## 2. Web interface
 

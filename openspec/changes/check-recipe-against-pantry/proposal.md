@@ -11,8 +11,8 @@ both, so it can do the looking and leave only the choosing.
 - **"Check the pantry" on recipe pages**: a page listing the recipe's ingredients, the items under its "Ingredients"
   heading, each shown as in the pantry (with where it is kept), already on the shopping list, or missing.
 - **Matching by name, ignoring case and quantities**: an ingredient is in the pantry when a pantry row's name and the
-  ingredient share all the words of the shorter one, so "200 g flour" finds the "Flour" row. Only presence is checked,
-  never whether there is enough.
+  ingredient share a word, leaving out numbers and filler words like "of" or "di", so "200 g flour" finds the "Flour"
+  row and "1 tbsp oil" the "Olive oil" one. Only presence is checked, never whether there is enough.
 - **Adding to the shopping list, never on its own**: missing ingredients come ticked, the others unticked; each has its
   name in an editable field, filled in with the ingredient as written, so "200 g flour" can become "Flour". "Add to
   shopping list" adds the ticked ones as Pantry entries, with the usual merging, and opens the shopping list.

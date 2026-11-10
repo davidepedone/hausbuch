@@ -10,9 +10,10 @@ func TestCheck(t *testing.T) {
 		{Values: Values{Name: "Flour", Location: "Cupboard"}},
 		{Values: Values{Name: "Olive oil", Location: "Shelf"}},
 		{Values: Values{Name: "Sesame oil", Location: "Shelf"}},
+		{Values: Values{Name: "Bag of rice", Location: "Shelf"}},
 	}
 	entries := []Entry{{Name: "Butter"}, {Name: "Milk", Bought: true}, {Name: "flour"}}
-	checked := Check([]string{"200 g flour", "Eggs", "50 g butter", "Oil", "1 l milk", "½", "Extra virgin olive oil"}, rows, entries)
+	checked := Check([]string{"200 g flour", "Eggs", "50 g butter", "Oil", "1 l milk", "½", "1 tbsp oil", "A pinch of salt", "Farina 00"}, rows, entries)
 
 	rowNames := func(i Ingredient) []string {
 		var names []string
@@ -30,9 +31,11 @@ func TestCheck(t *testing.T) {
 		{missing: true},           // missing
 		{listed: true},            // already on the list
 		{rows: []string{"Olive oil", "Sesame oil"}}, // shorter ingredient
-		{missing: true},               // a bought entry is not on the list
-		{missing: true},               // no words, no match
-		{rows: []string{"Olive oil"}}, // longer ingredient
+		{missing: true}, // a bought entry is not on the list
+		{missing: true}, // no words, no match
+		{rows: []string{"Olive oil", "Sesame oil"}}, // longer ingredient
+		{missing: true}, // filler words don't match
+		{missing: true}, // "00" holds digits, "farina" is not "flour"
 	}
 	for i, c := range cases {
 		got := checked[i]

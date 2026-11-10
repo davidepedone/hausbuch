@@ -33,13 +33,17 @@ headings written with other levels, which goldmark already handles.
 
 ### Matching by words, in package `stock`
 
-A name's words are its runs of letters and digits, lower-cased. An ingredient matches a name when the shorter of the two
-word sets, by count, is contained in the other; an empty word set never matches. `stock.Check(ingredients, rows,
-entries)` returns one result per ingredient: the matching pantry rows, else whether a not-bought entry matches. The web
-handler reads the rows and entries and calls it.
+A name's words are its runs of letters and digits, lower-cased, leaving out those holding a digit ("200", "00") and a
+short list of English and Italian filler words (articles, "of", "with", "di", "con" and the like). An ingredient
+matches a name when the two share a word. `stock.Check(ingredients, rows, entries)` returns one result per ingredient:
+the matching pantry rows, else whether a not-bought entry matches. The web handler reads the rows and entries and calls
+it.
 
-*Alternative considered*: SQL `LIKE` per ingredient. It can't express "all the words of the shorter one" and costs a
-query per ingredient.
+*Alternative considered*: all the words of the shorter name in the other. It misses the common case of an ingredient
+written with a unit, "1 tbsp oil" against an "Olive oil" row, since neither name holds all the other's words.
+
+*Alternative considered*: SQL `LIKE` per ingredient. It costs a query per ingredient for what a loop over a few hundred
+rows does in memory.
 
 ### A page of its own, with a plain form
 
@@ -53,8 +57,10 @@ a page of its own works the same on a phone without any script.
 
 ## Risks / Trade-offs
 
-- [Short words match too much: an ingredient "salt" matches a "Salted butter" row only if the word is identical, but
-  "Oil" matches "Olive oil" and "Sesame oil" alike] → accepted: the rows matched are shown by name, and the user decides
-  what to add.
+- [One shared word matches too much: "Tomato sauce" finds a "Soy sauce" row, "1 tbsp oil" both "Olive oil" and
+  "Sesame oil"] → accepted: the rows matched are shown by name, and the user decides what to add; a wrong "in the
+  pantry" is seen at once, a wrong "missing" is not.
+- [Filler words outside the list, or in other languages, still match] → the list covers English and Italian, the
+  languages households are expected to write in; more can be added when seen.
 - [An ingredient as written makes a poor entry name ("200 g flour")] → the name field is editable before adding; the
   entry's name is what the user leaves there.

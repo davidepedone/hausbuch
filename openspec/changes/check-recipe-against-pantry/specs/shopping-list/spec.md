@@ -33,8 +33,9 @@ list, when it matches an entry not yet bought; otherwise as missing. Pages of ot
 - **THEN** no "Check the pantry" is offered
 
 ### Requirement: Ingredients matched by their words
-An ingredient SHALL match a pantry row or an entry when, ignoring case, every word of the shorter of the two names is a
-word of the other, a word being a run of letters and digits. Quantities SHALL never be compared.
+An ingredient SHALL match a pantry row or an entry when, ignoring case, the two names share a word, a word being a run
+of letters and digits. Words holding a digit and filler words such as "a", "of", "the", "di" and "con" SHALL not count.
+Quantities SHALL never be compared.
 
 #### Scenario: Quantity words ignored
 - **WHEN** the pantry has a "Flour" row and a recipe lists "200 g flour"
@@ -43,6 +44,14 @@ word of the other, a word being a run of letters and digits. Quantities SHALL ne
 #### Scenario: Shorter ingredient
 - **WHEN** the pantry has an "Olive oil" row and a recipe lists "Oil"
 - **THEN** the check shows "Oil" as in the pantry
+
+#### Scenario: Longer ingredient
+- **WHEN** the pantry has an "Olive oil" row and a recipe lists "1 tbsp oil"
+- **THEN** the check shows "1 tbsp oil" as in the pantry
+
+#### Scenario: Filler words don't match
+- **WHEN** the pantry has a "Bag of rice" row and a recipe lists "A pinch of salt"
+- **THEN** the ingredient doesn't match the row
 
 ### Requirement: Add a recipe's missing ingredients
 The check SHALL let the user choose ingredients to add to the shopping list: each SHALL have a tick, ticked for the
