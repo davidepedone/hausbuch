@@ -47,13 +47,14 @@ func matches(a, b string) bool {
 }
 
 // fillers are the English and Italian words too common in names to tell two products apart.
-var fillers = map[string]bool{
-	"a": true, "an": true, "and": true, "for": true, "in": true, "of": true, "or": true, "the": true, "to": true,
-	"with": true,
-	"al":   true, "alla": true, "con": true, "d": true, "da": true, "dei": true, "del": true, "della": true, "delle": true,
-	"di": true, "e": true, "gli": true, "i": true, "il": true, "l": true, "la": true, "le": true, "lo": true, "o": true,
-	"per": true, "un": true, "una": true, "uno": true,
-}
+var fillers = func() map[string]bool {
+	set := map[string]bool{}
+	for _, w := range strings.Fields(`a an and for in of or the to with
+		al alla con d da dei del della delle di e gli i il l la le lo o per un una uno`) {
+		set[w] = true
+	}
+	return set
+}()
 
 // words are a name's runs of letters and digits, lower-cased, without those holding a digit and the fillers.
 func words(name string) map[string]bool {
