@@ -21,14 +21,13 @@ func inChrome(t *testing.T, a *testApp, h http.Handler, steps func(url string) c
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	// Without its sandbox, which Ubuntu 24.04's AppArmor rules keep Chrome from setting up; it only opens the test
-	// server's pages.
+	// server's pages. Starting Chrome alone can take more than chromedp's default 20 seconds on a busy CI runner.
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(),
-		append(chromedp.DefaultExecAllocatorOptions[:], chromedp.NoSandbox)...)
+		append(chromedp.DefaultExecAllocatorOptions[:], chromedp.NoSandbox, chromedp.WSURLReadTimeout(time.Minute))...)
 	defer cancel()
 	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
-	// Starting Chrome alone can take most of 20 seconds on a busy CI runner.
-	ctx, cancel = context.WithTimeout(ctx, time.Minute)
+	ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(srv.URL+"/login"),
