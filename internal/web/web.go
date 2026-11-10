@@ -85,7 +85,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		templates: map[string]*template.Template{},
 		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway"} {
+		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -103,6 +103,8 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	signedIn.HandleFunc("POST /pages/{id}", s.savePage)
 	signedIn.HandleFunc("POST /pages/{id}/delete", s.deletePage)
 	signedIn.HandleFunc("POST /pages/{id}/restore", s.restorePage)
+	signedIn.HandleFunc("GET /pages/{id}/pantry", s.pantryCheck)
+	signedIn.HandleFunc("POST /pages/{id}/pantry", s.addIngredients)
 	signedIn.HandleFunc("GET /deleted", s.deletedPages)
 	signedIn.HandleFunc("GET /search", s.search)
 	signedIn.HandleFunc("POST /preview", s.preview)

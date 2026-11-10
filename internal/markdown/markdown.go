@@ -1,9 +1,10 @@
-// Package markdown turns page bodies into HTML and finds the pages they link to.
+// Package markdown turns page bodies into HTML, finds the pages they link to and reads the lists in them.
 package markdown
 
 import (
 	"bytes"
 	htmltemplate "html/template"
+	"strings"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -116,4 +117,78 @@ func (r *nodeRenderer) wikilink(w util.BufWriter, _ []byte, node ast.Node, enter
 	}
 	_, _ = w.WriteString(`">`)
 	return ast.WalkContinue, nil
+}
+
+// ListUnder returns the text of the list items under the body's first heading that reads heading, ignoring case, up to
+// the next heading of the same or a higher level. Items of nested lists count too; a [[Title]] link counts as its title.
+func ListUnder(src, heading string) []string {
+	p := goldmark.New(goldmark.WithParserOptions(parser.WithInlineParsers(wikilinkParser))).Parser()
+	source := []byte(src)
+	var items []string
+	level := 0 // of the heading found, 0 before it
+	for n := p.Parse(text.NewReader(source)).FirstChild(); n != nil; n = n.NextSibling() {
+		if h, ok := n.(*ast.Heading); ok {
+			if level > 0 && h.Level <= level {
+				break
+			}
+			if level == 0 && strings.EqualFold(strings.TrimSpace(inlineText(h, source)), heading) {
+				level = h.Level
+			}
+			continue
+		}
+		if level > 0 {
+			items = appendItems(items, n, source)
+		}
+	}
+	return items
+}
+
+// appendItems appends the text of the list items in n, outer items before the items nested in them.
+func appendItems(items []string, n ast.Node, src []byte) []string {
+	list, ok := n.(*ast.List)
+	if !ok {
+		return items
+	}
+	for item := list.FirstChild(); item != nil; item = item.NextSibling() {
+		var nested []ast.Node
+		var parts []string
+		for c := item.FirstChild(); c != nil; c = c.NextSibling() {
+			if _, ok := c.(*ast.List); ok {
+				nested = append(nested, c)
+			} else {
+				parts = append(parts, inlineText(c, src))
+			}
+		}
+		if t := strings.TrimSpace(strings.Join(parts, " ")); t != "" {
+			items = append(items, t)
+		}
+		for _, l := range nested {
+			items = appendItems(items, l, src)
+		}
+	}
+	return items
+}
+
+// inlineText is the plain text of n's inline content.
+func inlineText(n ast.Node, src []byte) string {
+	var b strings.Builder
+	_ = ast.Walk(n, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch n := n.(type) {
+		case *wikilink.Node:
+			b.Write(n.Target)
+			return ast.WalkSkipChildren, nil
+		case *ast.Text:
+			b.Write(n.Segment.Value(src))
+			if n.SoftLineBreak() || n.HardLineBreak() {
+				b.WriteByte(' ')
+			}
+		case *ast.String:
+			b.Write(n.Value)
+		}
+		return ast.WalkContinue, nil
+	})
+	return b.String()
 }
