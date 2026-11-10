@@ -97,6 +97,31 @@ func TestChooseACategoryUnderTheField(t *testing.T) {
 	}
 }
 
+func TestChooseALocationUnderTheField(t *testing.T) {
+	a := newApp(t)
+	for _, location := range []string{"Cellar", "Fridge"} {
+		if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("u"+location, location, "pw").ID,
+			stock.Values{Name: location + " thing", Quantity: stock.One, Location: location}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const field = `form[action="/medicines/items"] [name=location]`
+	var chosen, typed string
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev"), func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			// An empty section opens its add form by itself.
+			chromedp.Navigate(url + "/medicines"),
+			chromedp.Click(`//input[@name="location"]/ancestor::div[@data-suggestions]//button[text()="Cellar"]`, chromedp.BySearch),
+			chromedp.Value(field, &chosen, chromedp.ByQuery),
+			chromedp.SendKeys(field, ", top shelf", chromedp.ByQuery),
+			chromedp.Value(field, &typed, chromedp.ByQuery),
+		}
+	})
+	if chosen != "Cellar" || typed != "Cellar, top shelf" {
+		t.Errorf("chosen %q, then typed %q", chosen, typed)
+	}
+}
+
 func TestShoppingListInTheBrowser(t *testing.T) {
 	a := newApp(t)
 	marco := a.addUser("marco", "Marco", "pw")

@@ -85,7 +85,7 @@ func TestAddAnItem(t *testing.T) {
 		t.Fatalf("add: %s %s", resp.Status, resp.Header.Get("Location"))
 	}
 	html := b.view("/pantry")
-	mustContain(t, html, ">Passata<", "bottles · Pantry, top shelf", "Expires 30 Sep 2027", ">3<")
+	mustContain(t, html, ">Passata<", "bottles · <a href=\"/locations/Pantry%2C%20top%20shelf\"", ">Pantry, top shelf</a>", "Expires 30 Sep 2027", ">3<")
 	if strings.Contains(b.view("/medicines"), "Passata") {
 		t.Error("pantry item listed in medicines")
 	}
@@ -613,14 +613,19 @@ func TestCommonCategoriesOnTheForms(t *testing.T) {
 	}
 }
 
-// categoryChoices returns the choices under a page's category field.
-func categoryChoices(body string) []string {
-	var choices []string
-	for _, m := range regexp.MustCompile(`<button type="button" data-suggestion class="chip">([^<]*)</button>`).FindAllStringSubmatch(body, -1) {
-		choices = append(choices, html.UnescapeString(m[1]))
+// choices returns the choices under a page's field of that name.
+func choices(body, name string) []string {
+	_, block, _ := strings.Cut(body, `<input name="`+name+`"`)
+	block, _, _ = strings.Cut(block, "<label") // the next field
+	var found []string
+	for _, m := range regexp.MustCompile(`<button type="button" data-suggestion class="chip">([^<]*)</button>`).FindAllStringSubmatch(block, -1) {
+		found = append(found, html.UnescapeString(m[1]))
 	}
-	return choices
+	return found
 }
+
+// categoryChoices returns the choices under a page's category field.
+func categoryChoices(body string) []string { return choices(body, "category") }
 
 func TestCategoryChoicesOnTheForms(t *testing.T) {
 	a := newApp(t)

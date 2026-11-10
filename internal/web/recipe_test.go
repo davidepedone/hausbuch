@@ -42,7 +42,7 @@ func TestCheckTheRecipe(t *testing.T) {
 	mustContain(t, b.view(strings.TrimSuffix(path, "/pantry")), `href="`+path+`"`, "Check the pantry")
 
 	body := b.view(path)
-	want := []string{"In the pantry: Flour in Cupboard · 100 g", "Missing", "On the shopping list"}
+	want := []string{`In the pantry: Flour in <a href="/locations/Cupboard" class="underline decoration-stone-300 hover:text-stone-700">Cupboard</a> · 100 g`, "Missing", "On the shopping list"}
 	if got := checked(t, body); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("states %q, want %q", got, want)
 	}

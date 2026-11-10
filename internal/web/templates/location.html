@@ -1,0 +1,26 @@
+{{define "content"}}
+{{with .Data}}
+<p class="mb-1 text-sm"><a href="/locations" class="text-sage-700 underline hover:text-sage-800">Locations</a></p>
+<h1 class="mb-4 break-words font-display text-xl font-semibold">{{.Location}}</h1>
+{{range .Groups}}
+<section class="mb-6">
+  <h2 class="mb-2 font-display text-lg font-semibold">{{.Section.Label}}</h2>
+  <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+    {{range .Items}}
+    <li>
+      <a href="/{{.Section}}#item-{{.ID}}" class="flex flex-wrap items-baseline justify-between gap-x-3 px-4 py-3 hover:bg-stone-50">
+        <span class="min-w-0 break-words font-medium">{{.Name}}
+          <span class="font-normal text-stone-500">· {{.Quantity}}{{with .Unit}} {{.}}{{end}}</span></span>
+        {{if expired .State}}<span class="text-sm font-semibold text-red-800">expired · {{calendar .Expiry}}</span>
+        {{- else if expiring .State}}<span class="text-sm text-amber-900">{{expiryNote .}} · {{calendar .Expiry}}</span>
+        {{- else if not .Expiry.IsZero}}<span class="text-sm text-stone-500">Expires {{calendar .Expiry}}</span>{{end}}
+      </a>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else}}
+<p class="text-stone-500">Nothing is kept here.</p>
+{{end}}
+{{end}}
+{{end}}

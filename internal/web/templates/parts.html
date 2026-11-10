@@ -24,12 +24,8 @@
 {{/* productFields are the fields of an item's add form that a known product fills in. */}}
 {{define "productFields"}}
 <div id="product-fields" class="grid gap-4 sm:grid-cols-2">
-  {{template "categoryField" .}}
-  <label class="block">
-    <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="location" value="{{.Form.Location}}" list="locations" autocomplete="off"
-           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
-  </label>
+  {{template "choiceField" field "category" "Category" true .Form.Category "categories" .Categories}}
+  {{template "choiceField" field "location" "Where it's kept" true .Form.Location "locations" .Locations}}
   <label class="block">
     <span class="mb-1 block text-sm font-medium">Days it lasts once opened <span class="font-normal text-stone-500">(optional)</span></span>
     <input name="opened_days" value="{{.Form.OpenedDays}}" type="number" min="1" step="1" inputmode="numeric"
@@ -38,17 +34,17 @@
 </div>
 {{end}}
 
-{{/* categoryField is an item's category, with the section's categories as choices under it: Safari on the iPhone
-     shows a datalist's suggestions only in the keyboard's bar, once something is typed. suggestions.js fills the field
-     from a choice. */}}
-{{define "categoryField"}}
+{{/* choiceField is a text field with its suggestions also shown as choices under it, as built by the field function:
+     Safari on the iPhone shows a datalist's suggestions only in the keyboard's bar, once something is typed.
+     suggestions.js fills the field from a choice. */}}
+{{define "choiceField"}}
 <div data-suggestions class="sm:col-span-2">
   <label class="block">
-    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
+    <span class="mb-1 block text-sm font-medium">{{.Label}}{{if .Optional}} <span class="font-normal text-stone-500">(optional)</span>{{end}}</span>
+    <input name="{{.Name}}" value="{{.Value}}" list="{{.List}}" autocomplete="off"
            class="w-full rounded border border-stone-300 px-3 py-2 text-base">
   </label>
-  {{with .Categories}}
+  {{with .Choices}}
   <div class="mt-2 flex flex-wrap gap-2">
     {{range .}}<button type="button" data-suggestion class="chip">{{.}}</button>{{end}}
   </div>
