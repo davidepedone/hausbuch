@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -312,7 +313,7 @@ func TestBuySomethingAgain(t *testing.T) {
 		"opened_days": {"4"}})
 	b.hx(itemPath(a.item(stock.Pantry, "Passata"))+"/remove", nil)
 	mustContain(t, b.view("/pantry"), `<option value="Passata">`, `<option value="Pantry, top shelf">`,
-		`<datalist id="categories"><option value="Long-life">`)
+		`<option value="Long-life">`)
 	resp := b.get("/pantry/product?name=passata")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("known product: %s", resp.Status)
@@ -342,7 +343,7 @@ func TestItemWithACategory(t *testing.T) {
 		t.Errorf("not in the Fresh group:\n%s", group)
 	}
 	edit := b.view(itemPath(milk))
-	mustContain(t, edit, `name="category" value="Fresh"`, `<datalist id="categories"><option value="Fresh">`)
+	mustContain(t, edit, `name="category" value="Fresh"`, `<option value="Fresh">`)
 	if r := b.post(itemPath(milk), url.Values{"name": {"Milk"}, "quantity": {"1"}, "category": {"Dairy"}}); r.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: %s", r.Status)
 	}
@@ -581,4 +582,71 @@ func TestMoveRefused(t *testing.T) {
 	if got := a.item(stock.Pantry, "Pasta"); got.Quantity != 3*stock.One || got.Location != "Cellar" {
 		t.Errorf("changed anyway: %+v", got)
 	}
+}
+
+// categoryOptions returns the options of a page's category suggestions.
+func categoryOptions(t *testing.T, body string) []string {
+	t.Helper()
+	_, list, ok := strings.Cut(body, `<datalist id="categories">`)
+	list, _, _ = strings.Cut(list, "</datalist>")
+	if !ok {
+		t.Fatalf("no category suggestions:\n%s", body)
+	}
+	var options []string
+	for _, m := range regexp.MustCompile(`<option value="([^"]*)">`).FindAllStringSubmatch(list, -1) {
+		options = append(options, html.UnescapeString(m[1]))
+	}
+	return options
+}
+
+func TestCommonCategoriesOnTheForms(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	want := []string{"Cleaning", "Laundry", "Paper & bags", "Personal care"}
+	if got := categoryOptions(t, b.view("/supplies")); !slices.Equal(got, want) {
+		t.Errorf("add form: %q, want %q", got, want)
+	}
+	b.addItem(stock.Medicines, url.Values{"name": {"Paracetamol"}})
+	want = []string{"Cold & flu", "First aid", "Pain & fever", "Stomach"}
+	if got := categoryOptions(t, b.view(itemPath(a.item(stock.Medicines, "Paracetamol")))); !slices.Equal(got, want) {
+		t.Errorf("edit page: %q, want %q", got, want)
+	}
+}
+
+// categoryChoices returns the choices under a page's category field.
+func categoryChoices(body string) []string {
+	var choices []string
+	for _, m := range regexp.MustCompile(`<button type="button" data-suggestion class="chip">([^<]*)</button>`).FindAllStringSubmatch(body, -1) {
+		choices = append(choices, html.UnescapeString(m[1]))
+	}
+	return choices
+}
+
+func TestCategoryChoicesOnTheForms(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	want := []string{"Cleaning", "Laundry", "Paper & bags", "Personal care"}
+	if got := categoryChoices(b.view("/supplies")); !slices.Equal(got, want) {
+		t.Errorf("add form: %q, want %q", got, want)
+	}
+	b.addItem(stock.Supplies, url.Values{"name": {"Soap"}, "category": {"Bathroom"}})
+	want = []string{"Bathroom", "Cleaning", "Laundry", "Paper & bags", "Personal care"}
+	if got := categoryChoices(b.view(itemPath(a.item(stock.Supplies, "Soap")))); !slices.Equal(got, want) {
+		t.Errorf("edit page: %q, want %q", got, want)
+	}
+	e := b.boughtEntry(url.Values{"name": {"Detergent"}, "section": {"supplies"}})
+	if got := categoryChoices(b.view(entryPath(e) + "/put-away")); !slices.Equal(got, want) {
+		t.Errorf("put-away page: %q, want %q", got, want)
+	}
+}
+
+func TestOnlySuggested(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Milk"}, "category": {"Fresh"}})
+	body := b.view("/pantry")
+	if strings.Contains(body, `data-filter-chip="frozen"`) || strings.Contains(body, ">Frozen</h2>") {
+		t.Error("an unused common category shows as a group or a chip")
+	}
+	mustContain(t, body, `data-filter-chip="fresh"`, `<option value="Frozen">`)
 }

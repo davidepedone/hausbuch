@@ -670,9 +670,18 @@ func (s *Store) Locations(ctx context.Context, section Section) ([]string, error
 		section)
 }
 
-// Categories returns the categories the section's products last had, without repetitions ignoring case.
+// commonCategories are suggested in each section next to the categories it has used, so that an empty section has some.
+var commonCategories = map[Section][]string{
+	Pantry:    {"Fresh", "Long-life", "Frozen", "Drinks"},
+	Medicines: {"Pain & fever", "Cold & flu", "Stomach", "First aid"},
+	Supplies:  {"Cleaning", "Laundry", "Paper & bags", "Personal care"},
+}
+
+// Categories returns the categories the section's products last had and its common ones, without repetitions ignoring
+// case; of a used and a common category with the same name, the used spelling is kept.
 func (s *Store) Categories(ctx context.Context, section Section) ([]string, error) {
 	list, err := s.strings(ctx, "SELECT DISTINCT category FROM stock_product WHERE section = ? AND category != ''", section)
+	list = append(list, commonCategories[section]...)
 	slices.SortStableFunc(list, func(a, b string) int { return strings.Compare(nameKey(a), nameKey(b)) })
 	return slices.CompactFunc(list, func(a, b string) bool { return nameKey(a) == nameKey(b) }), err
 }
