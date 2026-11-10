@@ -109,3 +109,23 @@ func TestLineBreaksAreKept(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestListUnder(t *testing.T) {
+	cases := []struct {
+		name, src string
+		want      []string
+	}{
+		{"only the ingredients", "## Ingredients\n\n- 200 g flour\n- Eggs\n\n## Steps\n\n- Mix\n", []string{"200 g flour", "Eggs"}},
+		{"no heading", "## Steps\n\n- Mix\n", nil},
+		{"no list", "## Ingredients\n\nWhatever is in the fridge.\n\n## Steps\n", nil},
+		{"any level and case", "# INGREDIENTS\n\n* Salt\n\n## For the sauce\n\n1. Passata\n\n# Steps\n\n- Mix\n", []string{"Salt", "Passata"}},
+		{"nested", "## Ingredients\n\n- Dough\n  - Flour\n  - Water\n- Oil\n", []string{"Dough", "Flour", "Water", "Oil"}},
+		{"link and formatting", "## Ingredients\n\n- 400 g [[Passata]]\n- **fresh** basil\n", []string{"400 g Passata", "fresh basil"}},
+		{"first heading only", "## Ingredients\n\n- Salt\n\n## Ingredients\n\n- Pepper\n", []string{"Salt"}},
+	}
+	for _, c := range cases {
+		if got := ListUnder(c.src, "Ingredients"); !slices.Equal(got, c.want) {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}
