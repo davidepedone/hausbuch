@@ -595,10 +595,52 @@ func (s *Store) Search(ctx context.Context, text string) ([]Item, error) {
 		name := search.Fold(it.Name)
 		return slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(name, search.Fold(w)) })
 	})
-	slices.SortStableFunc(items, func(a, b Item) int {
-		return cmp.Or(cmp.Compare(slices.Index(Sections, a.Section), slices.Index(Sections, b.Section)),
-			strings.Compare(nameKey(a.Name), nameKey(b.Name)), compareExpiry(a, b))
-	})
+	slices.SortStableFunc(items, bySection)
+	return items, nil
+}
+
+// bySection orders rows by section, in the sections' order, and within a section as List does.
+func bySection(a, b Item) int {
+	return cmp.Or(cmp.Compare(slices.Index(Sections, a.Section), slices.Index(Sections, b.Section)),
+		strings.Compare(nameKey(a.Name), nameKey(b.Name)), compareExpiry(a, b))
+}
+
+// Place is a location rows are kept in, as first spelt in alphabetical order, with the number of rows kept there.
+type Place struct {
+	Name string
+	Rows int
+}
+
+// Places returns the locations of every section's rows, one per location ignoring case, in alphabetical order.
+func (s *Store) Places(ctx context.Context) ([]Place, error) {
+	items, err := s.query(ctx, " WHERE i.location != ''")
+	if err != nil {
+		return nil, err
+	}
+	var places []Place
+	index := map[string]int{}
+	for _, it := range items {
+		key := nameKey(it.Location)
+		i, ok := index[key]
+		if !ok {
+			i, index[key] = len(places), len(places)
+			places = append(places, Place{Name: it.Location})
+		}
+		places[i].Rows++
+		places[i].Name = min(places[i].Name, it.Location)
+	}
+	slices.SortFunc(places, func(a, b Place) int { return strings.Compare(nameKey(a.Name), nameKey(b.Name)) })
+	return places, nil
+}
+
+// InLocation returns the rows of every section kept in location, ignoring case, ordered as Search orders them.
+func (s *Store) InLocation(ctx context.Context, location string) ([]Item, error) {
+	items, err := s.query(ctx, " ORDER BY i.id")
+	if err != nil {
+		return nil, err
+	}
+	items = slices.DeleteFunc(items, func(it Item) bool { return nameKey(it.Location) != nameKey(location) })
+	slices.SortStableFunc(items, bySection)
 	return items, nil
 }
 
@@ -663,11 +705,12 @@ func (s *Store) Names(ctx context.Context, section Section) ([]string, error) {
 	return s.strings(ctx, "SELECT name FROM stock_product WHERE section = ? ORDER BY name_key", section)
 }
 
-// Locations returns the locations the section's products were last kept in, without repetitions.
-func (s *Store) Locations(ctx context.Context, section Section) ([]string, error) {
-	return s.strings(ctx,
-		"SELECT DISTINCT location FROM stock_product WHERE section = ? AND location != '' ORDER BY lower(location)",
-		section)
+// Locations returns the locations the products of every section were last kept in, one per location ignoring case,
+// as first spelt in alphabetical order.
+func (s *Store) Locations(ctx context.Context) ([]string, error) {
+	list, err := s.strings(ctx, "SELECT DISTINCT location FROM stock_product WHERE location != ''")
+	slices.SortFunc(list, func(a, b string) int { return cmp.Or(strings.Compare(nameKey(a), nameKey(b)), strings.Compare(a, b)) })
+	return slices.CompactFunc(list, func(a, b string) bool { return nameKey(a) == nameKey(b) }), err
 }
 
 // commonCategories are suggested in each section next to the categories it has used, so that an empty section has some.

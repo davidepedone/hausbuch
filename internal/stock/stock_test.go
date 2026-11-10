@@ -503,7 +503,7 @@ func TestBuySomethingAgain(t *testing.T) {
 	if got, _ := f.stock.Names(ctx, Pantry); !slices.Equal(got, []string{"Passata"}) {
 		t.Errorf("names %v", got)
 	}
-	if got, _ := f.stock.Locations(ctx, Pantry); !slices.Equal(got, []string{"Pantry, top shelf"}) {
+	if got, _ := f.stock.Locations(ctx); !slices.Equal(got, []string{"Pantry, top shelf"}) {
 		t.Errorf("locations %v", got)
 	}
 }
@@ -527,9 +527,6 @@ func TestSuggestionsStayInTheirSection(t *testing.T) {
 	}
 	if got, _ := f.stock.Names(ctx, Pantry); len(got) != 0 {
 		t.Errorf("names %v", got)
-	}
-	if got, _ := f.stock.Locations(ctx, Pantry); len(got) != 0 {
-		t.Errorf("locations %v", got)
 	}
 	if got, _ := f.stock.Categories(ctx, Pantry); slices.Contains(got, "Pain") {
 		t.Errorf("categories %v", got)

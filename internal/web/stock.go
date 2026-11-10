@@ -133,7 +133,7 @@ func (s *server) sectionData(r *http.Request, sec stock.Section) (sectionData, e
 	if d.Categories, err = s.stock.Categories(r.Context(), sec); err != nil {
 		return d, err
 	}
-	d.Locations, err = s.stock.Locations(r.Context(), sec)
+	d.Locations, err = s.stock.Locations(r.Context())
 	return d, err
 }
 
@@ -199,7 +199,7 @@ func (s *server) renderItem(w http.ResponseWriter, r *http.Request, status int, 
 	d := itemData{Item: it, Form: form}
 	var err error
 	if d.Categories, err = s.stock.Categories(r.Context(), it.Section); err == nil {
-		d.Locations, err = s.stock.Locations(r.Context(), it.Section)
+		d.Locations, err = s.stock.Locations(r.Context())
 	}
 	if err != nil {
 		s.fail(w, err)
@@ -250,7 +250,7 @@ type moveData struct {
 
 func (s *server) renderMove(w http.ResponseWriter, r *http.Request, status int, d moveData) {
 	var err error
-	if d.Locations, err = s.stock.Locations(r.Context(), d.Item.Section); err != nil {
+	if d.Locations, err = s.stock.Locations(r.Context()); err != nil {
 		s.fail(w, err)
 		return
 	}

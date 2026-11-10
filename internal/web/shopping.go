@@ -204,7 +204,7 @@ func (s *server) boughtEntry(w http.ResponseWriter, r *http.Request) (stock.Entr
 func (s *server) renderPutAway(w http.ResponseWriter, r *http.Request, status int, d putAwayData) {
 	var err error
 	if d.Categories, err = s.stock.Categories(r.Context(), d.Entry.Section); err == nil {
-		d.Locations, err = s.stock.Locations(r.Context(), d.Entry.Section)
+		d.Locations, err = s.stock.Locations(r.Context())
 	}
 	if err != nil {
 		s.fail(w, err)

@@ -47,6 +47,18 @@ type view struct {
 // repository is where releases are published and problems reported.
 const repository = "https://github.com/davidepedone/hausbuch"
 
+// choiceField is what the choiceField part shows: a text field with its suggestions, List naming their datalist.
+type choiceField struct {
+	Name, Label string
+	Optional    bool
+	Value, List string
+	Choices     []string
+}
+
+func field(name, label string, optional bool, value, list string, choices []string) choiceField {
+	return choiceField{Name: name, Label: label, Optional: optional, Value: value, List: list, Choices: choices}
+}
+
 // releaseURL is the page of the version's release notes, or the list of releases for a build that isn't a release.
 func releaseURL(version string) string {
 	if version == "dev" {
@@ -64,13 +76,15 @@ var funcs = template.FuncMap{
 	"types":      func() []page.Type { return page.Types },
 	"sections":   func() []stock.Section { return stock.Sections },
 	// calendar shows a date that has no time of day, such as an expiry date, which must not move with the time zone.
-	"calendar":   func(t time.Time) string { return t.Format("2 Jan 2006") },
-	"inputDate":  inputDate,
-	"itemForm":   formOf,
-	"itemURL":    itemURL,
-	"expiryNote": expiryNote,
-	"expired":    func(s stock.State) bool { return s == stock.Expired },
-	"expiring":   func(s stock.State) bool { return s == stock.Expiring },
+	"calendar":    func(t time.Time) string { return t.Format("2 Jan 2006") },
+	"inputDate":   inputDate,
+	"itemForm":    formOf,
+	"itemURL":     itemURL,
+	"locationURL": locationURL,
+	"field":       field,
+	"expiryNote":  expiryNote,
+	"expired":     func(s stock.State) bool { return s == stock.Expired },
+	"expiring":    func(s stock.State) bool { return s == stock.Expiring },
 	// lower is a category's key, as the list filter's chips name it.
 	"lower":      strings.ToLower,
 	"shopKey":    stock.ShopKey,
@@ -85,7 +99,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		templates: map[string]*template.Template{},
 		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry"} {
+		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry", "locations", "location"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -105,6 +119,8 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	signedIn.HandleFunc("POST /pages/{id}/restore", s.restorePage)
 	signedIn.HandleFunc("GET /pages/{id}/pantry", s.pantryCheck)
 	signedIn.HandleFunc("POST /pages/{id}/pantry", s.addIngredients)
+	signedIn.HandleFunc("GET /locations", s.locations)
+	signedIn.HandleFunc("GET /locations/{name}", s.location)
 	signedIn.HandleFunc("GET /deleted", s.deletedPages)
 	signedIn.HandleFunc("GET /search", s.search)
 	signedIn.HandleFunc("POST /preview", s.preview)
