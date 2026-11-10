@@ -16,7 +16,7 @@
 
 - [x] 3.1 With `make check` green, in the browser at 390px, open the category field of an empty section's add form and of an edit page; verify the common categories are offered and nothing overflows
 
-- [ ] 3.2 With `make check` green, on an iPhone-sized Safari or Chrome at 390px, tap a choice under the category field
+- [x] 3.2 With `make check` green, on an iPhone-sized Safari or Chrome at 390px, tap a choice under the category field
   of the add form, the edit page and the put-away page; verify the field is filled and nothing overflows
 
 ## Workflow follow-up

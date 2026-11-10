@@ -202,6 +202,33 @@ choosing a known name SHALL fill in its category, location and shelf life after 
 - **WHEN** "Paracetamol" was used in Medicines, in the category "Pain"
 - **THEN** neither "Paracetamol" nor "Pain" is suggested while adding an item to Pantry
 
+### Requirement: Common categories
+Wherever a category is entered, the section's common categories SHALL be suggested next to the ones already used:
+Fresh, Long-life, Frozen and Drinks in Pantry; Pain & fever, Cold & flu, Stomach and First aid in Medicines; Cleaning,
+Laundry, Paper & bags and Personal care in Supplies. A used category of the same name, ignoring case, SHALL be
+suggested once, as the household spelt it. The suggestions SHALL also be shown as choices under the field, which fill it
+in when chosen.
+
+#### Scenario: Common categories in an empty section
+- **WHEN** Supplies has never had an item and a user starts typing a category there
+- **THEN** "Cleaning", "Laundry", "Paper & bags" and "Personal care" are suggested
+
+#### Scenario: Common and own categories together
+- **WHEN** the pantry has items in "Spices" and in "fresh" and a user starts typing a category
+- **THEN** "Drinks", "fresh", "Frozen", "Long-life" and "Spices" are suggested, "fresh" once
+
+#### Scenario: Suggested on the edit page
+- **WHEN** a user edits a row of Medicines
+- **THEN** the category field suggests "Pain & fever", "Cold & flu", "Stomach" and "First aid"
+
+#### Scenario: Choose a category under the field
+- **WHEN** a user opens the add form of an empty Supplies section and chooses "Laundry" under the category field
+- **THEN** the category field holds "Laundry", and can still be changed by typing
+
+#### Scenario: Only suggested
+- **WHEN** no pantry row has the category "Frozen"
+- **THEN** the Pantry section shows no "Frozen" group or chip
+
 ### Requirement: Group by category
 A section where some item has a category SHALL list its items in groups, one per category in alphabetical order and an
 "Other" group last for the items without one, each group ordered as the section is. Categories differing only in case
