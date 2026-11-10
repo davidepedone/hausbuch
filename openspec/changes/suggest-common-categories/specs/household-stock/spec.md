@@ -9,7 +9,8 @@ choosing a known name SHALL fill in its category, location and shelf life after 
 category is entered, the section's common categories SHALL also be suggested: Fresh, Long-life, Frozen and Drinks in
 Pantry; Pain & fever, Cold & flu, Stomach and First aid in Medicines; Cleaning, Laundry, Paper & bags and Personal care
 in Supplies. A category already used with the same name, ignoring case, SHALL be suggested once, as the household spelt
-it.
+it. The category suggestions SHALL also be shown as choices under the category field, so that they are seen on every
+browser without typing, and choosing one SHALL fill the field in.
 
 #### Scenario: Buy something again
 - **WHEN** a "Passata" row in "Long-life", kept in "Pantry, top shelf" and lasting 4 days once opened was removed, and
@@ -35,6 +36,10 @@ it.
 #### Scenario: Suggested on the edit page
 - **WHEN** a user edits a row of Medicines
 - **THEN** the category field suggests "Pain & fever", "Cold & flu", "Stomach" and "First aid"
+
+#### Scenario: Choose a category under the field
+- **WHEN** a user opens the add form of an empty Supplies section and chooses "Laundry" under the category field
+- **THEN** the category field holds "Laundry", and can still be changed by typing
 
 #### Scenario: Only suggested
 - **WHEN** no pantry row has the category "Frozen"

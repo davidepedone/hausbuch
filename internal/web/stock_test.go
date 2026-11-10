@@ -613,6 +613,33 @@ func TestCommonCategoriesOnTheForms(t *testing.T) {
 	}
 }
 
+// categoryChoices returns the choices under a page's category field.
+func categoryChoices(body string) []string {
+	var choices []string
+	for _, m := range regexp.MustCompile(`<button type="button" data-suggestion class="chip">([^<]*)</button>`).FindAllStringSubmatch(body, -1) {
+		choices = append(choices, html.UnescapeString(m[1]))
+	}
+	return choices
+}
+
+func TestCategoryChoicesOnTheForms(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	want := []string{"Cleaning", "Laundry", "Paper & bags", "Personal care"}
+	if got := categoryChoices(b.view("/supplies")); !slices.Equal(got, want) {
+		t.Errorf("add form: %q, want %q", got, want)
+	}
+	b.addItem(stock.Supplies, url.Values{"name": {"Soap"}, "category": {"Bathroom"}})
+	want = []string{"Bathroom", "Cleaning", "Laundry", "Paper & bags", "Personal care"}
+	if got := categoryChoices(b.view(itemPath(a.item(stock.Supplies, "Soap")))); !slices.Equal(got, want) {
+		t.Errorf("edit page: %q, want %q", got, want)
+	}
+	e := b.boughtEntry(url.Values{"name": {"Detergent"}, "section": {"supplies"}})
+	if got := categoryChoices(b.view(entryPath(e) + "/put-away")); !slices.Equal(got, want) {
+		t.Errorf("put-away page: %q, want %q", got, want)
+	}
+}
+
 func TestOnlySuggested(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")

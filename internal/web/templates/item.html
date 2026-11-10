@@ -29,11 +29,7 @@
       {{range sections}}<option value="{{.}}"{{if eq (print .) $section}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </label>
-  <label class="block">
-    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
-           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
-  </label>
+  {{template "categoryField" .}}
   <div class="grid gap-4 sm:grid-cols-2">
     <label class="block">
       <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
@@ -60,4 +56,5 @@
   </div>
 </form>
 {{end}}
+<script src="/static/suggestions.js" defer></script>
 {{end}}

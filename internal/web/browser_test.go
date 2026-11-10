@@ -79,6 +79,25 @@ func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 	}
 }
 
+func TestChooseACategoryUnderTheField(t *testing.T) {
+	a := newApp(t)
+	const field = `form[action="/supplies/items"] [name=category]`
+	var chosen, typed string
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev"), func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			// An empty section opens its add form by itself.
+			chromedp.Navigate(url + "/supplies"),
+			chromedp.Click(`//button[@data-suggestion][text()="Laundry"]`, chromedp.BySearch),
+			chromedp.Value(field, &chosen, chromedp.ByQuery),
+			chromedp.SendKeys(field, " room", chromedp.ByQuery),
+			chromedp.Value(field, &typed, chromedp.ByQuery),
+		}
+	})
+	if chosen != "Laundry" || typed != "Laundry room" {
+		t.Errorf("chosen %q, then typed %q", chosen, typed)
+	}
+}
+
 func TestShoppingListInTheBrowser(t *testing.T) {
 	a := newApp(t)
 	marco := a.addUser("marco", "Marco", "pw")
