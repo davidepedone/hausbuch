@@ -3,7 +3,8 @@
 A private household wiki for the people living in a home: recipes, how-to procedures, seasonal chores, where things
 are kept. Pages start from templates, can carry photos and files, and can have reminders that show up in the app when
 they are due. Three sections, Medicines, Pantry and Supplies, keep track of what the household has at home, and the
-home page points out what has expired or is about to.
+home page points out what has expired or is about to. A shared shopping list collects what runs out, and what was bought
+is put away into its section.
 
 Work in progress: the specification lives in [`openspec/`](openspec/).
 

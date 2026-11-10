@@ -73,6 +73,7 @@ var funcs = template.FuncMap{
 	"expiring":   func(s stock.State) bool { return s == stock.Expiring },
 	// lower is a category's key, as the list filter's chips name it.
 	"lower":      strings.ToLower,
+	"shopKey":    stock.ShopKey,
 	"releaseURL": releaseURL,
 	"reportURL":  func() string { return repository + "/issues/new/choose" },
 }
@@ -84,7 +85,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		templates: map[string]*template.Template{},
 		editors:   &editors{open: map[editorKey]*editor{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search", "section", "item", "move"} {
+		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -113,6 +114,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	signedIn.HandleFunc("GET /pages/{id}/revisions/{n}/compare", s.compare)
 	signedIn.HandleFunc("POST /pages/{id}/revisions/{n}/restore", s.restoreRevision)
 	s.routeStock(signedIn)
+	s.routeShopping(signedIn)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "password", passwordData{})

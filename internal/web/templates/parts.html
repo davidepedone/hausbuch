@@ -21,6 +21,27 @@
 {{- else if eq . "where"}}<path d="M3 13h18v7H3z"/><path d="M9 16h6"/><path d="M12 11s-3.5-3-3.5-5.5a3.5 3.5 0 0 1 7 0C15.5 8 12 11 12 11z"/><circle cx="12" cy="5.5" r="1"/>
 {{- end}}</svg>{{end}}
 
+{{/* productFields are the fields of an item's add form that a known product fills in. */}}
+{{define "productFields"}}
+<div id="product-fields" class="grid gap-4 sm:grid-cols-2">
+  <label class="block sm:col-span-2">
+    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
+           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
+  <label class="block">
+    <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="location" value="{{.Form.Location}}" list="locations" autocomplete="off"
+           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
+  <label class="block">
+    <span class="mb-1 block text-sm font-medium">Days it lasts once opened <span class="font-normal text-stone-500">(optional)</span></span>
+    <input name="opened_days" value="{{.Form.OpenedDays}}" type="number" min="1" step="1" inputmode="numeric"
+           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+  </label>
+</div>
+{{end}}
+
 {{/* expiryField is an item's printed expiry date, in its add and edit forms. */}}
 {{define "expiryField"}}
 <label class="block">
@@ -38,3 +59,7 @@ bottle for supplies. */}}
 {{- else if eq . "pantry"}}<path d="M8 3h8v3H8z"/><path d="M7 6h10a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1z"/><path d="M9 12h6"/>
 {{- else if eq . "supplies"}}<path d="M7 3h7v4H7z"/><path d="M14 5h3"/><path d="M20 2h.01M21 5h.01M20 8h.01"/><path d="M8 7v2l-2 3v8a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-8l-2-3V7"/>
 {{- end}}</svg>{{end}}
+
+{{/* cartIcon draws the shopping list's icon like sectionIcon does. */}}
+{{define "cartIcon"}}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-full" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>{{end}}

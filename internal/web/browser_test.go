@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -74,5 +75,49 @@ func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 	})
 	if location != "Kitchen" || focused != "location" {
 		t.Errorf("location %q, focus on %q", location, focused)
+	}
+}
+
+func TestShoppingListInTheBrowser(t *testing.T) {
+	a := newApp(t)
+	marco := a.addUser("marco", "Marco", "pw")
+	ctx := context.Background()
+	for _, e := range []stock.Entry{
+		{Name: "Paracetamol", Section: stock.Medicines, Shop: "Pharmacy"},
+		{Name: "Butter", Section: stock.Pantry, Shop: "Migros"},
+		{Name: "Bread"},
+	} {
+		if err := a.stock.AddEntry(ctx, marco.ID, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const shown = `[...document.querySelectorAll("#entries [data-entry]:not([hidden])")].map((e) => e.querySelector(".font-medium").textContent)`
+	const butterBought = `[...document.querySelectorAll("#entries section")].some((s) =>
+		s.querySelector("h2").textContent === "Bought" && s.textContent.includes("Butter"))`
+	var atThePharmacy, afterRefresh []string
+	var typed, pressed string
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev"), func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			chromedp.Navigate(url + "/shopping"),
+			chromedp.Click(`[data-filter-chip="pharmacy"]`, chromedp.ByQuery),
+			chromedp.Evaluate(shown, &atThePharmacy),
+			chromedp.Click("summary", chromedp.ByQuery),
+			chromedp.SendKeys(`form[action="/shopping/entries"] [name=name]`, "Ric", chromedp.ByQuery),
+			// Bought by someone else while the list is open.
+			chromedp.ActionFunc(func(context.Context) error {
+				return a.stock.Tick(ctx, a.entry("Butter").ID, true)
+			}),
+			chromedp.Poll(butterBought, nil, chromedp.WithPollingTimeout(15*time.Second)),
+			chromedp.Evaluate(shown, &afterRefresh),
+			chromedp.Value(`form[action="/shopping/entries"] [name=name]`, &typed, chromedp.ByQuery),
+			chromedp.AttributeValue(`[data-filter-chip="pharmacy"]`, "aria-pressed", &pressed, nil, chromedp.ByQuery),
+		}
+	})
+	want := []string{"Paracetamol", "Bread"}
+	if !slices.Equal(atThePharmacy, want) || !slices.Equal(afterRefresh, want) {
+		t.Errorf("at the pharmacy %v, after the refresh %v, want %v", atThePharmacy, afterRefresh, want)
+	}
+	if typed != "Ric" || pressed != "true" {
+		t.Errorf("after the refresh: typed %q, pharmacy chip pressed %q", typed, pressed)
 	}
 }

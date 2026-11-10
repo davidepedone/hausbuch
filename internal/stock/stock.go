@@ -191,29 +191,35 @@ func (s *Store) add(ctx context.Context, section Section, userID int64, v Values
 	if err := check(&v); err != nil {
 		return 0, err
 	}
-	now := s.Now().Unix()
 	var id int64
 	err := s.inTx(ctx, func(tx *sql.Tx) error {
-		var merged bool
 		var err error
-		if id, merged, err = mergeInto(ctx, tx, section, userID, now, v); err != nil || merged {
-			return err
-		}
-		res, err := tx.ExecContext(ctx, `
-			INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
-				opened_on, opened_days, created_by, created_at, changed_by, changed_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			section, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
-			days(v.OpenedDays), createdBy, createdAt.Unix(), userID, now)
-		if err != nil {
-			return err
-		}
-		if id, err = res.LastInsertId(); err != nil {
-			return err
-		}
-		return remember(ctx, tx, section, v)
+		id, err = s.addIn(ctx, tx, section, userID, v, createdBy, createdAt)
+		return err
 	})
 	return id, err
+}
+
+// addIn adds checked values inside tx, as add does.
+func (s *Store) addIn(ctx context.Context, tx *sql.Tx, section Section, userID int64, v Values, createdBy int64, createdAt time.Time) (int64, error) {
+	now := s.Now().Unix()
+	id, merged, err := mergeInto(ctx, tx, section, userID, now, v)
+	if err != nil || merged {
+		return id, err
+	}
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO stock_item (section, name, name_key, quantity_tenths, unit, category, location, expires_on,
+			opened_on, opened_days, created_by, created_at, changed_by, changed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		section, v.Name, nameKey(v.Name), v.Quantity, v.Unit, v.Category, v.Location, date(v.ExpiresOn), date(v.OpenedOn),
+		days(v.OpenedDays), createdBy, createdAt.Unix(), userID, now)
+	if err != nil {
+		return 0, err
+	}
+	if id, err = res.LastInsertId(); err != nil {
+		return 0, err
+	}
+	return id, remember(ctx, tx, section, v)
 }
 
 // Update replaces the values of a row of the section, changed by the user, and keeps it in the section to, moving it

@@ -27,6 +27,9 @@ func (s *server) routeStock(mux *http.ServeMux) {
 		mux.HandleFunc("POST "+base+"/items/restore", func(w http.ResponseWriter, r *http.Request) {
 			s.restoreItem(w, r, sec)
 		})
+		mux.HandleFunc("POST "+base+"/items/to-list", func(w http.ResponseWriter, r *http.Request) {
+			s.listRemoved(w, r, sec)
+		})
 		mux.HandleFunc("GET "+base+"/product", func(w http.ResponseWriter, r *http.Request) { s.product(w, r, sec) })
 	}
 }
@@ -109,6 +112,7 @@ type sectionData struct {
 	Locations  []string
 	Form       itemForm
 	Removed    *stock.Item // the row just removed, to offer undoing it
+	Listed     string      // the name of a product just added to the shopping list, to say so
 }
 
 // Grouped tells whether some row has a category, so that the list shows its groups and chips.
@@ -285,7 +289,8 @@ func (s *server) moveItem(w http.ResponseWriter, r *http.Request, sec stock.Sect
 	s.renderMove(w, r, http.StatusBadRequest, d)
 }
 
-// changeItem applies one of a row's buttons: decrease, increase, open or remove.
+// changeItem applies one of a row's buttons: decrease, increase, open, remove or list, which adds it to the shopping
+// list.
 func (s *server) changeItem(w http.ResponseWriter, r *http.Request, sec stock.Section) {
 	it, ok := s.itemFromPath(w, r, sec)
 	if !ok {
@@ -293,6 +298,7 @@ func (s *server) changeItem(w http.ResponseWriter, r *http.Request, sec stock.Se
 	}
 	userID := currentUser(r).ID
 	var removed *stock.Item
+	var listed string
 	var err error
 	switch r.PathValue("action") {
 	case "decrease":
@@ -306,6 +312,9 @@ func (s *server) changeItem(w http.ResponseWriter, r *http.Request, sec stock.Se
 		if gone, err = s.stock.Remove(r.Context(), sec, it.ID); err == nil {
 			removed = &gone
 		}
+	case "list":
+		listed = it.Name
+		_, err = s.stock.AddRowToList(r.Context(), sec, it.ID, userID)
 	default:
 		http.NotFound(w, r)
 		return
@@ -318,12 +327,12 @@ func (s *server) changeItem(w http.ResponseWriter, r *http.Request, sec stock.Se
 		s.fail(w, err)
 		return
 	}
-	s.answerItems(w, r, sec, removed)
+	s.answerItems(w, r, sec, removed, listed)
 }
 
-// answerItems answers a row's button with the section's list, offering to undo a removal, or, without HTMX, with a
-// redirect to the section.
-func (s *server) answerItems(w http.ResponseWriter, r *http.Request, sec stock.Section, removed *stock.Item) {
+// answerItems answers a row's button with the section's list, offering to undo a removal or saying that a product was
+// added to the shopping list, or, without HTMX, with a redirect to the section.
+func (s *server) answerItems(w http.ResponseWriter, r *http.Request, sec stock.Section, removed *stock.Item, listed string) {
 	if r.Header.Get("HX-Request") == "" {
 		http.Redirect(w, r, "/"+string(sec), http.StatusSeeOther)
 		return
@@ -333,7 +342,7 @@ func (s *server) answerItems(w http.ResponseWriter, r *http.Request, sec stock.S
 		s.fail(w, err)
 		return
 	}
-	d.Removed = removed
+	d.Removed, d.Listed = removed, listed
 	s.renderPart(w, "section", "items", d)
 }
 
@@ -356,7 +365,22 @@ func (s *server) restoreItem(w http.ResponseWriter, r *http.Request, sec stock.S
 		s.fail(w, err)
 		return
 	}
-	s.answerItems(w, r, sec, nil)
+	s.answerItems(w, r, sec, nil, "")
+}
+
+// listRemoved adds a product just removed to the shopping list, from the values the undo offer carries.
+func (s *server) listRemoved(w http.ResponseWriter, r *http.Request, sec stock.Section) {
+	name := r.PostFormValue("name")
+	err := s.stock.AddEntry(r.Context(), currentUser(r).ID, stock.Entry{Name: name, Unit: r.PostFormValue("unit"), Section: sec})
+	if refusal(err) != "" {
+		http.Error(w, "The removed item can't be added to the shopping list.", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.answerItems(w, r, sec, nil, strings.TrimSpace(name))
 }
 
 // product answers the add form's name field with the category, location and shelf life the product last had, or with
