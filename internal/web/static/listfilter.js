@@ -1,6 +1,7 @@
 // The chips at the top of a list. The markup marks the filter's box with data-filter, its chips with data-filter-chip
 // (the key of the entries they stand for) and its "All" chip with data-filter-all; each entry with data-entry and
-// data-chip; each group of entries with data-group; and the line saying that nothing matches with data-filter-none.
+// data-chip, or data-chip-any for one that matches every chip; each group of entries with data-group; and the line
+// saying that nothing matches with data-filter-none.
 {
   // The chips may come with the list, so the box remembers the chosen chip's key, falling back to "All" when a new
   // list no longer has that chip.
@@ -13,7 +14,7 @@
     const entries = box.querySelectorAll("[data-entry]");
     let shown = 0;
     for (const entry of entries) {
-      entry.hidden = !!chip && entry.dataset.chip !== chip.dataset.filterChip;
+      entry.hidden = !!chip && entry.dataset.chip !== chip.dataset.filterChip && !entry.hasAttribute("data-chip-any");
       if (!entry.hidden) shown++;
     }
     for (const group of box.querySelectorAll("[data-group]")) {

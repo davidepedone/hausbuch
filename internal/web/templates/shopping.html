@@ -1,0 +1,132 @@
+{{define "content"}}
+{{with .Data}}
+<h1 class="mb-4 font-display text-xl font-semibold">Shopping list</h1>
+<details class="mb-6 rounded border border-stone-200 bg-white"{{if or (not (or .ToBuy .Bought)) .Form.Error}} open{{end}}>
+  <summary class="cursor-pointer px-4 py-3 font-medium">Add to the list</summary>
+  <form method="post" action="/shopping/entries" class="space-y-4 border-t border-stone-200 p-4">
+    {{with .Form.Error}}
+    <p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
+    {{end}}
+    <label class="block">
+      <span class="mb-1 block text-sm font-medium">Name</span>
+      {{/* Choosing a name used before fills in its section and the shop it was last bought at. */}}
+      <input name="name" value="{{.Form.Name}}" list="names" required autocomplete="off" data-product-name
+             hx-get="/shopping/product" hx-trigger="change" hx-swap="none"
+             class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+    </label>
+    <datalist id="names">{{range .Names}}<option value="{{.}}">{{end}}</datalist>
+    <div class="grid grid-cols-2 gap-4">
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium">Quantity <span class="font-normal text-stone-500">(optional)</span></span>
+        <input name="quantity" value="{{.Form.Quantity}}" inputmode="decimal"
+               class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium">Unit <span class="font-normal text-stone-500">(optional)</span></span>
+        <input name="unit" value="{{.Form.Unit}}" placeholder="packs, bottles…"
+               class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+      </label>
+    </div>
+    <div id="product-fields" class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium">Section <span class="font-normal text-stone-500">(optional)</span></span>
+        {{$section := .Form.Section}}
+        <select name="section" class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base">
+          <option value="">None</option>
+          {{range sections}}<option value="{{.}}"{{if eq (print .) $section}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm font-medium">Shop <span class="font-normal text-stone-500">(optional)</span></span>
+        <input name="shop" value="{{.Form.Shop}}" list="shops" autocomplete="off"
+               class="w-full rounded border border-stone-300 px-3 py-2 text-base">
+      </label>
+    </div>
+    <datalist id="shops">{{range .Shops}}<option value="{{.}}">{{end}}</datalist>
+    <button class="rounded bg-sage-700 px-4 py-2 font-medium text-white hover:bg-sage-800">Add</button>
+  </form>
+</details>
+<div data-filter>
+  {{template "entries" .}}
+</div>
+<script src="/static/listfilter.js" defer></script>
+<script src="/static/productfields.js" defer></script>
+{{end}}
+{{end}}
+
+{{/* listProduct is what an entry of a known name is filled in with; productfields.js copies the fields it holds. */}}
+{{define "listProduct"}}
+<div id="product-fields">
+  {{with .Section}}<input name="section" value="{{.}}">{{end}}
+  {{with .Shop}}<input name="shop" value="{{.}}">{{end}}
+</div>
+{{end}}
+
+{{/* entries refreshes itself, so that what others tick or add shows up; the add form is outside it and keeps what is
+     being typed. */}}
+{{define "entries"}}
+<div id="entries" hx-get="/shopping/entries" hx-trigger="every 10s" hx-swap="outerHTML">
+  {{with .Chips}}
+  <div class="mb-4 flex flex-wrap gap-2" aria-label="Shops" role="group">
+    {{template "allChip"}}
+    {{range .}}<button type="button" data-filter-chip="{{.Key}}" aria-pressed="false" class="chip">{{.Label}}</button>
+    {{end}}
+  </div>
+  {{end}}
+  {{range .ToBuy}}
+  <section data-group class="mb-4">
+    <h2 class="mb-1 font-display text-lg font-semibold">{{.Label}}</h2>
+    <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+      {{range .Entries}}{{template "entryRow" .}}{{end}}
+    </ul>
+  </section>
+  {{else}}
+  <p class="mb-4 text-stone-500">Nothing to buy.</p>
+  {{end}}
+  {{with .Bought}}
+  <section data-group class="mb-4">
+    <div class="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
+      <h2 class="font-display text-lg font-semibold">Bought</h2>
+      {{if $.Clearable}}
+      <form method="post" action="/shopping/clear" hx-post="/shopping/clear" hx-target="#entries" hx-swap="outerHTML">
+        <button class="text-sm text-stone-500 underline hover:text-stone-900">Clear those without a section</button>
+      </form>
+      {{end}}
+    </div>
+    <ul class="divide-y divide-stone-200 rounded border border-stone-200 bg-white">
+      {{range .}}{{template "entryRow" .}}{{end}}
+    </ul>
+  </section>
+  {{end}}
+  {{template "nothingMatches"}}
+</div>
+{{end}}
+
+{{/* entryRow is an entry of the list: entries without a shop match every shop's chip. */}}
+{{define "entryRow"}}
+{{$url := printf "/shopping/entries/%d" .ID}}
+<li data-entry data-chip="{{shopKey .Shop}}"{{if not .Shop}} data-chip-any{{end}} class="flex items-center gap-3 px-4 py-3">
+  <form method="post" action="{{$url}}/{{if .Bought}}untick{{else}}tick{{end}}" hx-post="{{$url}}/{{if .Bought}}untick{{else}}tick{{end}}"
+        hx-target="#entries" hx-swap="outerHTML" class="shrink-0">
+    <button aria-label="{{if .Bought}}Not bought yet{{else}}Bought{{end}}: {{.Name}}"
+            class="grid size-8 place-items-center rounded border {{if .Bought}}border-sage-700 bg-sage-700 text-white{{else}}border-stone-400 bg-white hover:bg-stone-100{{end}}">
+      {{if .Bought}}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>{{end}}
+    </button>
+  </form>
+  <div class="min-w-0 flex-1">
+    <span class="block break-words font-medium{{if .Bought}} text-stone-500{{end}}">{{.Name}}</span>
+    {{if or .Quantity .Unit .Shop}}
+    <span class="block break-words text-sm text-stone-500">
+      {{- if .Quantity}}{{.Quantity}}{{end}}{{if and .Quantity .Unit}} {{end}}{{.Unit}}
+      {{- if and (or .Quantity .Unit) .Shop}} · {{end}}{{.Shop -}}
+    </span>
+    {{end}}
+  </div>
+  <div class="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm">
+    {{if and .Bought .Section}}<a href="{{$url}}/put-away" class="text-sage-700 underline hover:text-sage-800">Put away</a>{{end}}
+    <form method="post" action="{{$url}}/remove" hx-post="{{$url}}/remove" hx-target="#entries" hx-swap="outerHTML">
+      <button class="text-stone-500 underline hover:text-stone-900">Remove</button>
+    </form>
+  </div>
+</li>
+{{end}}

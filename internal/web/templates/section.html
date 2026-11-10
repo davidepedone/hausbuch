@@ -42,26 +42,6 @@
 {{end}}
 {{end}}
 
-{{define "productFields"}}
-<div id="product-fields" class="grid gap-4 sm:grid-cols-2">
-  <label class="block sm:col-span-2">
-    <span class="mb-1 block text-sm font-medium">Category <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="category" value="{{.Form.Category}}" list="categories" autocomplete="off"
-           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
-  </label>
-  <label class="block">
-    <span class="mb-1 block text-sm font-medium">Where it's kept <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="location" value="{{.Form.Location}}" list="locations" autocomplete="off"
-           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
-  </label>
-  <label class="block">
-    <span class="mb-1 block text-sm font-medium">Days it lasts once opened <span class="font-normal text-stone-500">(optional)</span></span>
-    <input name="opened_days" value="{{.Form.OpenedDays}}" type="number" min="1" step="1" inputmode="numeric"
-           class="w-full rounded border border-stone-300 px-3 py-2 text-base">
-  </label>
-</div>
-{{end}}
-
 {{define "items"}}
 <div id="items">
   {{with .Removed}}
@@ -82,8 +62,14 @@
     <input type="hidden" name="created_by" value="{{.CreatedByID}}">
     <input type="hidden" name="created_at" value="{{.CreatedAt.Unix}}">
     <span class="min-w-0 break-words">Removed {{.Name}}.</span>
-    <button class="shrink-0 font-semibold underline">Undo</button>
+    <span class="flex shrink-0 flex-wrap justify-end gap-x-4 gap-y-1">
+      <button class="font-semibold underline">Undo</button>
+      <button formaction="/{{.Section}}/items/to-list" hx-post="/{{.Section}}/items/to-list" class="font-semibold underline">Add to shopping list</button>
+    </span>
   </form>
+  {{end}}
+  {{with .Listed}}
+  <p role="status" class="fade-away fixed inset-x-4 bottom-4 z-10 mx-auto max-w-sm break-words rounded bg-stone-800 px-4 py-3 text-sm text-white shadow-lg">Added {{.}} to the shopping list.</p>
   {{end}}
   {{if .Grouped}}
   <div class="mb-4 flex flex-wrap gap-2" aria-label="Categories" role="group">
@@ -146,6 +132,9 @@
     {{end}}
     <a href="{{$url}}" class="text-sage-700 underline hover:text-sage-800">Edit</a>
     <a href="{{$url}}/move" class="text-sage-700 underline hover:text-sage-800">Move</a>
+    <form method="post" action="{{$url}}/list" hx-post="{{$url}}/list" hx-target="#items" hx-swap="outerHTML">
+      <button class="text-sage-700 underline hover:text-sage-800">Add to shopping list</button>
+    </form>
     <form method="post" action="{{$url}}/remove" hx-post="{{$url}}/remove" hx-target="#items" hx-swap="outerHTML">
       <button class="text-stone-500 underline hover:text-stone-900">Remove</button>
     </form>
