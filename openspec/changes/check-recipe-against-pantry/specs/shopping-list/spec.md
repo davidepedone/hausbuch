@@ -5,12 +5,12 @@
 ### Requirement: Check a recipe against the pantry
 A recipe page SHALL offer "Check the pantry", which lists the recipe's ingredients: the list items under the body's
 "Ingredients" heading, ignoring case, up to the next heading of the same or a higher level, in order. Each ingredient
-SHALL be shown as in the pantry, with the names and locations of the rows it matches; otherwise as on the shopping
+SHALL be shown as in the pantry, with the names, locations and quantities of the rows it matches; otherwise as on the shopping
 list, when it matches an entry not yet bought; otherwise as missing. Pages of other types SHALL NOT offer the check.
 
 #### Scenario: In the pantry
-- **WHEN** the pantry has a "Flour" row kept in "Cupboard" and a recipe lists "200 g flour"
-- **THEN** the check shows "200 g flour" as in the pantry, as "Flour" in "Cupboard"
+- **WHEN** the pantry has a "Flour" row of 100 g kept in "Cupboard" and a recipe lists "200 g flour"
+- **THEN** the check shows "200 g flour" as in the pantry, as "Flour" in "Cupboard", 100 g
 
 #### Scenario: Missing
 - **WHEN** no pantry row and no entry matches "Eggs" and a recipe lists "Eggs"

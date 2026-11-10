@@ -16,7 +16,7 @@
         <input name="name-{{$i}}" value="{{.Name}}" aria-label="Name of {{.Text}} on the shopping list"
                class="w-full rounded border border-stone-300 px-3 py-2 text-base">
         <p class="mt-1 break-words text-sm {{if .Missing}}font-medium text-red-700{{else}}text-stone-500{{end}}">
-          {{- if .Rows}}In the pantry: {{range $j, $it := .Rows}}{{if $j}}; {{end}}{{$it.Name}}{{with $it.Location}} in {{.}}{{end}}{{end}}
+          {{- if .Rows}}In the pantry: {{range $j, $it := .Rows}}{{if $j}}; {{end}}{{$it.Name}}{{with $it.Location}} in {{.}}{{end}} · {{$it.Quantity}}{{with $it.Unit}} {{.}}{{end}}{{end}}
           {{- else if .Listed}}On the shopping list
           {{- else}}Missing{{end}}</p>
       </div>

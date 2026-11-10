@@ -35,13 +35,13 @@ func checked(t *testing.T, body string) []string {
 func TestCheckTheRecipe(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
-	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}, "location": {"Cupboard"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Flour"}, "location": {"Cupboard"}, "quantity": {"100"}, "unit": {"g"}})
 	b.addEntry(url.Values{"name": {"Butter"}})
 	path := b.recipe("200 g flour", "Eggs", "50 g butter")
 	mustContain(t, b.view(strings.TrimSuffix(path, "/pantry")), `href="`+path+`"`, "Check the pantry")
 
 	body := b.view(path)
-	want := []string{"In the pantry: Flour in Cupboard", "Missing", "On the shopping list"}
+	want := []string{"In the pantry: Flour in Cupboard · 100 g", "Missing", "On the shopping list"}
 	if got := checked(t, body); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("states %q, want %q", got, want)
 	}
