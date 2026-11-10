@@ -27,7 +27,8 @@ func inChrome(t *testing.T, a *testApp, h http.Handler, steps func(url string) c
 	defer cancel()
 	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
-	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	// Starting Chrome alone can take most of 20 seconds on a busy CI runner.
+	ctx, cancel = context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(srv.URL+"/login"),
