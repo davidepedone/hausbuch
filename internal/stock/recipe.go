@@ -50,7 +50,7 @@ func matches(a, b string) bool {
 var fillers = map[string]bool{
 	"a": true, "an": true, "and": true, "for": true, "in": true, "of": true, "or": true, "the": true, "to": true,
 	"with": true,
-	"al": true, "alla": true, "con": true, "d": true, "da": true, "dei": true, "del": true, "della": true, "delle": true,
+	"al":   true, "alla": true, "con": true, "d": true, "da": true, "dei": true, "del": true, "della": true, "delle": true,
 	"di": true, "e": true, "gli": true, "i": true, "il": true, "l": true, "la": true, "le": true, "lo": true, "o": true,
 	"per": true, "un": true, "una": true, "uno": true,
 }
