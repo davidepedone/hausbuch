@@ -163,3 +163,8 @@ scripts/release.sh             # make check, then the next YYYY.MM.N pushed as :
 scripts/promote.sh             # once it has been tried: moves :stable onto the newest release
 scripts/promote.sh 2026.11.1   # or onto a given one, e.g. to roll back
 ```
+
+## License
+
+hausbuch is licensed under the GNU Affero General Public License v3.0, see [LICENSE](LICENSE). If you run a
+modified version for others to use over a network, you must offer them its source code.
