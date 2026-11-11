@@ -60,7 +60,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return 1
 		}
 		defer database.Close()
-		return runUser(context.Background(), user.NewStore(database), args, stdin, stdout, stderr)
+		return runUser(context.Background(), user.NewStore(database), os.Getenv("HAUSBUCH_URL"), args, stdin, stdout, stderr)
 	default:
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -96,6 +96,11 @@ func serve(addr, dbPath, backupDir string) int {
 		slog.Error("cannot open database", "path", dbPath, "err", err)
 		return 1
 	}
+	passkeys, err := web.PasskeyConfig(os.Getenv("HAUSBUCH_URL"))
+	if err != nil {
+		slog.Error(err.Error(), "value", os.Getenv("HAUSBUCH_URL"))
+		return 1
+	}
 	go backUpDaily(database, backupDir, keep)
 	users := user.NewStore(database)
 	users.SessionTimeout = timeout
@@ -110,7 +115,7 @@ func serve(addr, dbPath, backupDir string) int {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users, pages, items, version),
+		Handler:           web.NewHandler(users, pages, items, version, passkeys),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)

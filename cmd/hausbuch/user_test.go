@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func newStore(t *testing.T) *user.Store {
 func userCmd(t *testing.T, store *user.Store, stdin string, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
-	code := runUser(context.Background(), store, args, strings.NewReader(stdin), &stdout, &stderr)
+	code := runUser(context.Background(), store, "", args, strings.NewReader(stdin), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -115,5 +116,29 @@ func TestUserUnlock(t *testing.T) {
 	}
 	if code, _, stderr := userCmd(t, store, "", "unlock", "nobody"); code != 1 || !strings.Contains(stderr, "no account") {
 		t.Errorf("unlock of an unknown user: exit %d, %q", code, stderr)
+	}
+}
+
+func TestUserLink(t *testing.T) {
+	store := newStore(t)
+	userCmd(t, store, "pw\n", "add", "anna", "Anna")
+	code, stdout, stderr := userCmd(t, store, "", "link", "anna")
+	path := regexp.MustCompile(`\n(/link/[A-Za-z0-9_-]{43})\n`).FindStringSubmatch(stdout)
+	if code != 0 || path == nil || !strings.Contains(stdout, "set HAUSBUCH_URL") {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	if _, err := store.UseLink(context.Background(), strings.TrimPrefix(path[1], "/link/")); err != nil {
+		t.Errorf("printed link doesn't sign in: %v", err)
+	}
+
+	var out bytes.Buffer
+	if code := runUser(context.Background(), store, "https://home.example.org/", []string{"link", "anna"}, strings.NewReader(""), &out, &out); code != 0 ||
+		!regexp.MustCompile(`\nhttps://home\.example\.org/link/[A-Za-z0-9_-]{43}\n$`).MatchString(out.String()) {
+		t.Errorf("with HAUSBUCH_URL: exit %d, %q", code, out.String())
+	}
+
+	userCmd(t, store, "", "disable", "anna")
+	if code, _, stderr := userCmd(t, store, "", "link", "anna"); code == 0 || !strings.Contains(stderr, "disabled") {
+		t.Errorf("disabled account: exit %d, %q", code, stderr)
 	}
 }

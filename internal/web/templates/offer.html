@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="mx-auto max-w-sm">
+  <h1 class="mb-2 text-xl font-display font-semibold">Sign in faster next time</h1>
+  <p class="mb-6 text-stone-700">Create a passkey and sign in with this device's fingerprint, face or screen lock, with no password to type. Your password keeps working.</p>
+  <div data-passkey-create data-next="{{.Data}}">
+    <p data-passkey-error hidden class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert"></p>
+    <button type="button" data-passkey-button class="mb-3 w-full rounded bg-sage-700 px-3 py-2 font-medium text-white hover:bg-sage-800">Create a passkey</button>
+  </div>
+  <a href="{{.Data}}" class="block w-full rounded px-3 py-2 text-center text-stone-600 hover:bg-stone-100">Not now</a>
+</div>
+<script src="/static/passkeys.js" defer></script>
+{{end}}

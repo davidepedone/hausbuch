@@ -14,7 +14,7 @@
     <input type="hidden" name="next" value="{{.Data.Next}}">
     <label class="block">
       <span class="mb-1 block text-sm font-medium">Username</span>
-      <input name="username" value="{{.Data.Username}}" autocomplete="username" autocapitalize="none" required autofocus
+      <input name="username" value="{{.Data.Username}}" autocomplete="username{{if .Data.Passkeys}} webauthn{{end}}" autocapitalize="none" required autofocus
              class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
     <label class="block">
@@ -24,5 +24,12 @@
     </label>
     <button class="w-full rounded bg-sage-700 px-3 py-2 font-medium text-white hover:bg-sage-800">Sign in</button>
   </form>
+  {{if .Data.Passkeys}}
+  <div data-passkey-sign-in data-next="{{.Data.Next}}" class="mt-6 border-t border-stone-200 pt-6">
+    <p data-passkey-error hidden class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert"></p>
+    <button type="button" data-passkey-button class="w-full rounded border border-sage-700 px-3 py-2 font-medium text-sage-800 hover:bg-sage-50">Sign in with a passkey</button>
+  </div>
+  <script src="/static/passkeys.js" defer></script>
+  {{end}}
 </div>
 {{end}}

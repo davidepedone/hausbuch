@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"encoding/base64"
 	"errors"
 	"html/template"
 	"io/fs"
@@ -13,6 +14,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/davidepedone/hausbuch/internal/page"
 	"github.com/davidepedone/hausbuch/internal/stock"
@@ -27,12 +30,14 @@ var files embed.FS
 const sessionCookie = "hausbuch_session"
 
 type server struct {
-	users     *user.Store
-	pages     *page.Store
-	stock     *stock.Store
-	version   string
-	templates map[string]*template.Template
-	editors   *editors
+	users      *user.Store
+	pages      *page.Store
+	stock      *stock.Store
+	version    string
+	templates  map[string]*template.Template
+	editors    *editors
+	passkeys   *webauthn.WebAuthn // nil when passkeys can't be offered
+	ceremonies *ceremonies
 }
 
 // view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
@@ -86,20 +91,22 @@ var funcs = template.FuncMap{
 	"expired":     func(s stock.State) bool { return s == stock.Expired },
 	"expiring":    func(s stock.State) bool { return s == stock.Expiring },
 	// lower is a category's key, as the list filter's chips name it.
-	"lower":      strings.ToLower,
-	"shopKey":    stock.ShopKey,
-	"releaseURL": releaseURL,
-	"reportURL":  func() string { return repository + "/issues/new/choose" },
+	"lower":       strings.ToLower,
+	"shopKey":     stock.ShopKey,
+	"releaseURL":  releaseURL,
+	"reportURL":   func() string { return repository + "/issues/new/choose" },
+	"linkMinutes": func() int { return int(user.LinkLifetime.Minutes()) },
+	"passkeyID":   func(id []byte) string { return base64.RawURLEncoding.EncodeToString(id) },
 }
 
-// NewHandler returns the application's HTTP handler. Everything except signing in, static assets and the health
-// check requires a session; version is the running release, or "dev".
-func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, version string) http.Handler {
-	s := &server{users: users, pages: pages, stock: items, version: version,
+// NewHandler returns the application's HTTP handler. Everything except signing in, sign-in links, static assets and
+// the health check requires a session; version is the running release, or "dev".
+func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, version string, passkeys *webauthn.WebAuthn) http.Handler {
+	s := &server{users: users, pages: pages, stock: items, version: version, passkeys: passkeys,
 		templates: map[string]*template.Template{},
-		editors:   &editors{open: map[editorKey]*editor{}}}
+		editors:   &editors{open: map[editorKey]*editor{}}, ceremonies: &ceremonies{m: map[string]ceremony{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
-		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry", "locations", "location"} {
+		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry", "locations", "location", "link", "offer"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
 			ParseFS(files, "templates/layout.html", "templates/parts.html", "templates/"+name+".html"))
 	}
@@ -135,7 +142,7 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	s.routeShopping(signedIn)
 	signedIn.HandleFunc("POST /logout", s.logout)
 	signedIn.HandleFunc("GET /account/password", func(w http.ResponseWriter, r *http.Request) {
-		s.render(w, r, http.StatusOK, "password", passwordData{})
+		s.renderAccount(w, r, http.StatusOK, passwordData{})
 	})
 	signedIn.HandleFunc("POST /account/password", s.changePassword)
 
@@ -146,6 +153,9 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)
+	mux.HandleFunc("GET /link/{token}", s.linkPage)
+	mux.HandleFunc("POST /link/{token}", s.useLink)
+	s.routePasskeys(mux, signedIn)
 	mux.Handle("/", s.requireSession(signedIn))
 
 	return http.NewCrossOriginProtection().Handler(mux)
@@ -206,6 +216,7 @@ type loginData struct {
 	Error      string
 	Username   string
 	Next       string
+	Passkeys   bool // whether passkey sign-in is offered
 }
 
 func (s *server) loginPage(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +229,7 @@ func (s *server) renderLogin(w http.ResponseWriter, r *http.Request, status int,
 		s.fail(w, err)
 		return
 	}
-	data.NoAccounts = len(users) == 0
+	data.NoAccounts, data.Passkeys = len(users) == 0, s.passkeys != nil
 	s.render(w, r, status, "login", data)
 }
 
@@ -234,13 +245,30 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	s.signIn(w, r, u, next)
+}
+
+// signIn starts a session for u and sends them on to next, if it is a path on this site, by way of the passkey offer
+// when passkeys are on and u has none.
+func (s *server) signIn(w http.ResponseWriter, r *http.Request, u user.User, next string) {
 	sess, err := s.users.CreateSession(r.Context(), u)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
 	setSessionCookie(w, r, sess)
-	http.Redirect(w, r, localPath(next), http.StatusSeeOther)
+	next = localPath(next)
+	if s.passkeys != nil {
+		keys, err := s.users.Passkeys(r.Context(), u.ID)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		if len(keys) == 0 {
+			next = "/account/passkeys/offer?next=" + url.QueryEscape(next)
+		}
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 // localPath returns next if it is a path on this site, and "/" otherwise, so that the login form can't be used to
@@ -268,24 +296,39 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 type passwordData struct {
 	Error   string
 	Changed bool
+	// Passkeys are the user's, listed when PasskeysOn.
+	PasskeysOn bool
+	Passkeys   []user.Passkey
+}
+
+// renderAccount shows the account page, with the user's passkeys when passkeys are on.
+func (s *server) renderAccount(w http.ResponseWriter, r *http.Request, status int, d passwordData) {
+	if d.PasskeysOn = s.passkeys != nil; d.PasskeysOn {
+		var err error
+		if d.Passkeys, err = s.users.Passkeys(r.Context(), currentUser(r).ID); err != nil {
+			s.fail(w, err)
+			return
+		}
+	}
+	s.render(w, r, status, "password", d)
 }
 
 func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 	current, password, repeat := r.PostFormValue("current"), r.PostFormValue("new"), r.PostFormValue("repeat")
 	if password != repeat {
-		s.render(w, r, http.StatusBadRequest, "password", passwordData{Error: "The two new passwords don't match."})
+		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: "The two new passwords don't match."})
 		return
 	}
 	err := s.users.ChangePassword(r.Context(), currentUser(r).ID, current, password)
 	switch {
 	case errors.Is(err, user.ErrBadCredentials):
-		s.render(w, r, http.StatusBadRequest, "password", passwordData{Error: "The current password is wrong."})
+		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: "The current password is wrong."})
 	case errors.Is(err, user.ErrInvalid):
-		s.render(w, r, http.StatusBadRequest, "password", passwordData{Error: "The new password must not be empty."})
+		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: "The new password must not be empty."})
 	case err != nil:
 		s.fail(w, err)
 	default:
-		s.render(w, r, http.StatusOK, "password", passwordData{Changed: true})
+		s.renderAccount(w, r, http.StatusOK, passwordData{Changed: true})
 	}
 }
 
