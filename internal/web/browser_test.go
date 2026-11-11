@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -198,6 +199,19 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 			chromedp.Text(`[data-passkey-error]`, text, chromedp.ByQuery),
 		}
 	}
+	// arrived waits for expression to be true across navigations, which make chromedp.Poll fail.
+	arrived := func(expression string) chromedp.Action {
+		return chromedp.ActionFunc(func(ctx context.Context) error {
+			for range 150 {
+				var ok bool
+				if err := chromedp.Evaluate(expression, &ok).Do(ctx); err == nil && ok {
+					return nil
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			return fmt.Errorf("never true: %s", expression)
+		})
+	}
 	act := func(f func() error) chromedp.Action {
 		return chromedp.ActionFunc(func(context.Context) error { return f() })
 	}
@@ -217,9 +231,11 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 			chromedp.WaitVisible(`a[href="/pages/new"]`, chromedp.ByQuery),
 			chromedp.Location(&afterOffer),
 
-			// The username field's suggestions: the virtual authenticator picks the passkey by itself.
+			// The username field's suggestions: the virtual authenticator picks the passkey by itself. The page being left
+			// has the same link, so the one waited for must be on a page without its mark.
+			chromedp.Evaluate(`window.left = true`, nil),
 			chromedp.Click(`form[action="/logout"] button`, chromedp.ByQuery),
-			chromedp.WaitVisible(`a[href="/pages/new"]`, chromedp.ByQuery),
+			arrived(`!window.left && document.querySelector('a[href="/pages/new"]') !== null`),
 			chromedp.Location(&fromSuggestions),
 			// Without suggestions from here on, so that the login page waits for the button.
 			chromedp.ActionFunc(func(ctx context.Context) error {
