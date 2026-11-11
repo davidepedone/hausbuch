@@ -43,11 +43,10 @@ While no account exists, the login page SHALL say so and show the command that c
 - **THEN** the page explains that accounts are created from the command line and shows the `user add` command
 
 ### Requirement: Repeated failed sign-ins lock the username
-After 3 failed sign-in attempts in a row for the same username from the same address, the system SHALL refuse
-password sign-ins for that username from that address, even with the right password, for 15 minutes. Sign-ins for that
-username from other addresses SHALL NOT be affected. The message SHALL be the same as for wrong credentials. The lock
-SHALL survive a restart and SHALL be liftable from the command line, for every address at once. An address is an IPv4
-address, or the first 64 bits of an IPv6 address.
+After 3 failed sign-ins in a row for a username from one address, an IPv4 address or the first 64 bits of an IPv6
+address, the system SHALL refuse password sign-ins for it from that address for 15 minutes, even with the right
+password, with the same message as for wrong credentials. Other addresses SHALL NOT be affected. The lock SHALL
+survive a restart and SHALL be liftable from the command line, for every address at once.
 
 #### Scenario: Lock after failures
 - **WHEN** 3 sign-ins in a row fail for a username from one address and the right password is then submitted from
