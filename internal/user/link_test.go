@@ -11,7 +11,7 @@ func TestSignInLink(t *testing.T) {
 	s, now := newStore(t), time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
 	s.Now = func() time.Time { return now }
 	ctx := context.Background()
-	anna := mustAdd(t, s, "anna", "Anna", "pw")
+	anna := mustAdd(t, s, "anna", "Anna", "spoon kettle garden")
 	token, err := s.CreateLink(ctx, "ANNA")
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestSignInLink(t *testing.T) {
 func TestSignInLinkExpires(t *testing.T) {
 	s, now := newStore(t), time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
 	s.Now = func() time.Time { return now }
-	mustAdd(t, s, "anna", "Anna", "pw")
+	mustAdd(t, s, "anna", "Anna", "spoon kettle garden")
 	token, _ := s.CreateLink(context.Background(), "anna")
 	now = now.Add(16 * time.Minute)
 	if _, err := s.UseLink(context.Background(), token); !errors.Is(err, ErrNoLink) {
@@ -48,8 +48,8 @@ func TestSignInLinkExpires(t *testing.T) {
 
 func TestNewerLinkReplacesTheOlder(t *testing.T) {
 	s := newStore(t)
-	mustAdd(t, s, "anna", "Anna", "pw")
-	mustAdd(t, s, "marco", "Marco", "pw")
+	mustAdd(t, s, "anna", "Anna", "spoon kettle garden")
+	mustAdd(t, s, "marco", "Marco", "spoon kettle garden")
 	ctx := context.Background()
 	first, _ := s.CreateLink(ctx, "anna")
 	marcos, _ := s.CreateLink(ctx, "marco")
@@ -66,7 +66,7 @@ func TestNewerLinkReplacesTheOlder(t *testing.T) {
 
 func TestNoLinkForADisabledAccount(t *testing.T) {
 	s := newStore(t)
-	mustAdd(t, s, "anna", "Anna", "pw")
+	mustAdd(t, s, "anna", "Anna", "spoon kettle garden")
 	ctx := context.Background()
 	if _, err := s.CreateLink(ctx, "nobody"); !errors.Is(err, ErrNoSuchUser) {
 		t.Errorf("unknown user: %v", err)

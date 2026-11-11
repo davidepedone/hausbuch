@@ -59,3 +59,12 @@ func TestServeRefusesInvalidLeadTime(t *testing.T) {
 		}
 	}
 }
+
+func TestServeRefusesInvalidTrustedProxies(t *testing.T) {
+	t.Setenv("HAUSBUCH_DB_PATH", filepath.Join(t.TempDir(), "hausbuch.db"))
+	t.Setenv("HAUSBUCH_LISTEN", "127.0.0.1:0")
+	t.Setenv("HAUSBUCH_TRUSTED_PROXIES", "172.16.0.0/12, caddy")
+	if code := run([]string{"serve"}, nil, io.Discard, io.Discard); code != 1 {
+		t.Errorf("exit code %d, want 1", code)
+	}
+}

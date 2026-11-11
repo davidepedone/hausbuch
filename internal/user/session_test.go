@@ -22,7 +22,7 @@ const day = 24 * time.Hour
 
 func signedIn(t *testing.T, s *Store) Session {
 	t.Helper()
-	u, err := s.Add(context.Background(), "anna", "Anna", "pw")
+	u, err := s.Add(context.Background(), "anna", "Anna", "spoon kettle garden")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -51,13 +51,17 @@
   const next = (block) => "?next=" + encodeURIComponent(block.dataset.next || "/");
 
   // signIn runs one passkey sign-in; conditional ones wait for the user to pick a passkey among the username field's
-  // suggestions, and are cancelled when the button starts another.
+  // suggestions, and are cancelled when the button starts another. A conditional one that can't start, over the
+  // request limit for one, says nothing: the user hasn't asked for anything yet.
   let pending;
   const signIn = async (block, conditional) => {
     pending?.abort();
     pending = new AbortController();
     try {
-      const options = await post("/login/passkey/begin");
+      const options = await post("/login/passkey/begin").catch((e) => {
+        if (conditional) e.name = "AbortError";
+        throw e;
+      });
       const credential = await navigator.credentials.get({ publicKey: requestOptions(options.publicKey),
         signal: pending.signal, mediation: conditional ? "conditional" : "optional" });
       const answer = await post("/login/passkey/finish" + next(block), credentialJSON(credential));

@@ -36,7 +36,7 @@ func (s *Store) WebAuthnID(ctx context.Context, userID int64) ([]byte, error) {
 // UserByHandle returns the account with that WebAuthn user handle, disabled or not, or ErrNoSuchUser.
 func (s *Store) UserByHandle(ctx context.Context, handle []byte) (User, error) {
 	u, err := scanUser(s.DB.QueryRowContext(ctx,
-		"SELECT id, username, display_name, disabled, locked_until FROM app_user WHERE webauthn_id = ?", handle))
+		"SELECT u.id, u.username, u.display_name, u.disabled, "+lockedUntilColumn+" FROM app_user u WHERE u.webauthn_id = ?", handle))
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrNoSuchUser
 	}

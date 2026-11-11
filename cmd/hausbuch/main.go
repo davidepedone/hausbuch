@@ -101,6 +101,11 @@ func serve(addr, dbPath, backupDir string) int {
 		slog.Error(err.Error(), "value", os.Getenv("HAUSBUCH_URL"))
 		return 1
 	}
+	proxies, err := web.ParseTrustedProxies(os.Getenv("HAUSBUCH_TRUSTED_PROXIES"))
+	if err != nil {
+		slog.Error(err.Error(), "value", os.Getenv("HAUSBUCH_TRUSTED_PROXIES"))
+		return 1
+	}
 	go backUpDaily(database, backupDir, keep)
 	users := user.NewStore(database)
 	users.SessionTimeout = timeout
@@ -115,7 +120,7 @@ func serve(addr, dbPath, backupDir string) int {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           web.NewHandler(users, pages, items, version, passkeys),
+		Handler:           web.NewHandler(users, pages, items, version, passkeys, proxies),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	slog.Info("listening", "addr", addr)
@@ -124,12 +129,15 @@ func serve(addr, dbPath, backupDir string) int {
 	return 1
 }
 
-// cleanUp removes expired sessions and pages deleted for too long, at start and then daily. Signing in removes
-// expired sessions too, and creating or renaming a page removes such pages first.
+// cleanUp removes expired sessions, failed sign-ins that no longer count and pages deleted for too long, at start and
+// then daily. Signing in removes expired sessions too, and creating or renaming a page removes such pages first.
 func cleanUp(users *user.Store, pages *page.Store) {
 	for {
 		if err := users.DeleteExpiredSessions(context.Background()); err != nil {
 			slog.Error("remove expired sessions", "err", err)
+		}
+		if err := users.DeleteStaleFailures(context.Background()); err != nil {
+			slog.Error("remove old failed sign-ins", "err", err)
 		}
 		if err := pages.RemoveExpired(context.Background()); err != nil {
 			slog.Error("remove deleted pages", "err", err)

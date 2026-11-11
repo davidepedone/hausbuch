@@ -128,8 +128,8 @@ func (s *server) passkeyUser(ctx context.Context, u user.User) (passkeyUser, err
 
 // routePasskeys registers the passkey endpoints: the sign-in ones on open, the others on signedIn.
 func (s *server) routePasskeys(open, signedIn *http.ServeMux) {
-	open.HandleFunc("POST /login/passkey/begin", s.beginPasskeySignIn)
-	open.HandleFunc("POST /login/passkey/finish", s.finishPasskeySignIn)
+	open.HandleFunc("POST /login/passkey/begin", s.limited(s.beginPasskeySignIn))
+	open.HandleFunc("POST /login/passkey/finish", s.limited(s.finishPasskeySignIn))
 	signedIn.HandleFunc("GET /account/passkeys/offer", s.passkeyOffer)
 	signedIn.HandleFunc("POST /account/passkeys/begin", s.beginPasskeyRegistration)
 	signedIn.HandleFunc("POST /account/passkeys/finish", s.finishPasskeyRegistration)
@@ -175,10 +175,11 @@ func (s *server) finishPasskeySignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	data, ok := s.ceremonies.finish(r, 0)
 	if !ok {
+		s.logEvent(r, slog.LevelWarn, "sign-in failed", "unknown", "method", "passkey", "reason", "no open passkey prompt")
 		s.passkeyError(w, http.StatusBadRequest, passkeyFailed, nil)
 		return
 	}
-	var signedIn user.User
+	signedIn := user.User{Username: "unknown"}
 	found, credential, err := s.passkeys.FinishPasskeyLogin(func(_, handle []byte) (webauthn.User, error) {
 		u, err := s.users.UserByHandle(r.Context(), handle)
 		if err != nil {
@@ -188,11 +189,14 @@ func (s *server) finishPasskeySignIn(w http.ResponseWriter, r *http.Request) {
 		return s.passkeyUser(r.Context(), u)
 	}, data, r)
 	if err != nil {
-		s.passkeyError(w, http.StatusUnauthorized, passkeyFailed, err)
+		s.logEvent(r, slog.LevelWarn, "sign-in failed", signedIn.Username, "method", "passkey", "reason", "passkey refused",
+			"err", err)
+		s.passkeyError(w, http.StatusUnauthorized, passkeyFailed, nil)
 		return
 	}
 	// The password lock doesn't apply: a passkey can't be guessed.
 	if signedIn.Disabled || found == nil {
+		s.logEvent(r, slog.LevelWarn, "sign-in failed", signedIn.Username, "method", "passkey", "reason", "disabled")
 		s.passkeyError(w, http.StatusUnauthorized, passkeyFailed, nil)
 		return
 	}
@@ -208,6 +212,7 @@ func (s *server) finishPasskeySignIn(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	s.logEvent(r, slog.LevelInfo, "signed in", signedIn.Username, "method", "passkey")
 	setSessionCookie(w, r, sess)
 	writeJSON(w, http.StatusOK, map[string]string{"next": localPath(r.URL.Query().Get("next"))})
 }
@@ -273,6 +278,7 @@ func (s *server) finishPasskeyRegistration(w http.ResponseWriter, r *http.Reques
 		s.fail(w, err)
 		return
 	}
+	s.logEvent(r, slog.LevelInfo, "passkey added", u.Username)
 	writeJSON(w, http.StatusOK, map[string]string{"next": localPath(r.URL.Query().Get("next"))})
 }
 
@@ -288,6 +294,7 @@ func (s *server) removePasskey(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.fail(w, err)
 	default:
+		s.logEvent(r, slog.LevelInfo, "passkey removed", currentUser(r).Username)
 		http.Redirect(w, r, "/account/password", http.StatusSeeOther)
 	}
 }

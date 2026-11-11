@@ -15,9 +15,9 @@ import (
 // signedInAs adds an account and returns a browser signed in with it.
 func (a *testApp) signedInAs(username, displayName string) *browser {
 	a.t.Helper()
-	a.addUser(username, displayName, "pw")
+	a.addUser(username, displayName, "spoon kettle garden")
 	b := a.browser()
-	if resp := b.signIn(username, "pw"); resp.StatusCode != http.StatusSeeOther {
+	if resp := b.signIn(username, "spoon kettle garden"); resp.StatusCode != http.StatusSeeOther {
 		a.t.Fatalf("sign in: %s", resp.Status)
 	}
 	return b
@@ -250,7 +250,7 @@ func TestChipsOfThePageList(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
 	b.create("Irrigation", "")
-	anna, _ := a.users.Authenticate(context.Background(), "anna", "pw")
+	anna, _ := a.users.Authenticate(context.Background(), "anna", "spoon kettle garden", "192.0.2.1")
 	if _, err := a.pages.Create(context.Background(), anna.ID,
 		page.Content{Title: "Pizza", Type: page.Recipe}); err != nil {
 		t.Fatal(err)

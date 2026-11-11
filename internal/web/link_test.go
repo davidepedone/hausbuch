@@ -18,7 +18,7 @@ func (a *testApp) link(username string) string {
 
 func TestSignInWithALink(t *testing.T) {
 	a := newApp(t)
-	a.addUser("anna", "Anna Rossi", "pw")
+	a.addUser("anna", "Anna Rossi", "spoon kettle garden")
 	path := a.link("anna")
 	b := a.browser()
 	// Opening is not signing in.
@@ -46,7 +46,7 @@ func TestSignInWithALink(t *testing.T) {
 
 func TestExpiredLink(t *testing.T) {
 	a := newApp(t)
-	a.addUser("anna", "Anna", "pw")
+	a.addUser("anna", "Anna", "spoon kettle garden")
 	now := time.Now()
 	a.users.Now = func() time.Time { return now }
 	path := a.link("anna")
@@ -60,7 +60,7 @@ func TestExpiredLink(t *testing.T) {
 
 func TestLinkOfADisabledAccount(t *testing.T) {
 	a := newApp(t)
-	a.addUser("anna", "Anna", "pw")
+	a.addUser("anna", "Anna", "spoon kettle garden")
 	path := a.link("anna")
 	if err := a.users.Disable(context.Background(), "anna"); err != nil {
 		t.Fatal(err)

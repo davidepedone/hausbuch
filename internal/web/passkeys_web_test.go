@@ -27,9 +27,9 @@ func TestPlainHTTPInstallation(t *testing.T) {
 
 func TestOfferAfterThePassword(t *testing.T) {
 	a := newAppWithPasskeys(t)
-	a.addUser("anna", "Anna", "pw")
+	a.addUser("anna", "Anna", "spoon kettle garden")
 	b := a.browser()
-	r := b.post("/login", url.Values{"username": {"anna"}, "password": {"pw"}, "next": {"/pantry"}})
+	r := b.post("/login", url.Values{"username": {"anna"}, "password": {"spoon kettle garden"}, "next": {"/pantry"}})
 	if want := "/account/passkeys/offer?next=%2Fpantry"; r.Header.Get("Location") != want {
 		t.Fatalf("after the password: %s, want %s", r.Header.Get("Location"), want)
 	}
@@ -38,11 +38,11 @@ func TestOfferAfterThePassword(t *testing.T) {
 
 func TestNoOfferWithAPasskey(t *testing.T) {
 	a := newAppWithPasskeys(t)
-	anna := a.addUser("anna", "Anna", "pw")
+	anna := a.addUser("anna", "Anna", "spoon kettle garden")
 	if err := a.users.AddPasskey(context.Background(), anna.ID, []byte("k1"), []byte("{}")); err != nil {
 		t.Fatal(err)
 	}
-	r := a.browser().post("/login", url.Values{"username": {"anna"}, "password": {"pw"}, "next": {"/pantry"}})
+	r := a.browser().post("/login", url.Values{"username": {"anna"}, "password": {"spoon kettle garden"}, "next": {"/pantry"}})
 	if r.Header.Get("Location") != "/pantry" {
 		t.Errorf("after the password: %s", r.Header.Get("Location"))
 	}
@@ -50,7 +50,7 @@ func TestNoOfferWithAPasskey(t *testing.T) {
 
 func TestOnlyOwnPasskeysRemoved(t *testing.T) {
 	a := newAppWithPasskeys(t)
-	anna := a.addUser("anna", "Anna", "pw")
+	anna := a.addUser("anna", "Anna", "spoon kettle garden")
 	if err := a.users.AddPasskey(context.Background(), anna.ID, []byte("k1"), []byte("{}")); err != nil {
 		t.Fatal(err)
 	}

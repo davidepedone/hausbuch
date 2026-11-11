@@ -30,7 +30,7 @@ func runningServer(t *testing.T) (*httptest.Server, *user.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), stock.NewStore(serverDB), "dev", nil))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(serverDB), page.NewStore(serverDB), stock.NewStore(serverDB), "dev", nil, nil))
 	t.Cleanup(func() {
 		srv.Close()
 		_ = serverDB.Close()
@@ -73,24 +73,24 @@ func home(t *testing.T, c *http.Client, srv *httptest.Server) int {
 
 func TestSetPasswordWhileServerRuns(t *testing.T) {
 	srv, cli := runningServer(t)
-	userCmd(t, cli, "old pw\n", "add", "anna", "Anna")
+	userCmd(t, cli, "old spoon kettle garden\n", "add", "anna", "Anna")
 
-	if code, _, stderr := userCmd(t, cli, "new pw\n", "set-password", "anna"); code != 0 {
+	if code, _, stderr := userCmd(t, cli, "new spoon kettle garden\n", "set-password", "anna"); code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	if status := signIn(t, newClient(t), srv, "anna", "new pw"); status != http.StatusSeeOther {
+	if status := signIn(t, newClient(t), srv, "anna", "new spoon kettle garden"); status != http.StatusSeeOther {
 		t.Errorf("sign in with the new password: %d", status)
 	}
-	if status := signIn(t, newClient(t), srv, "anna", "old pw"); status != http.StatusUnauthorized {
+	if status := signIn(t, newClient(t), srv, "anna", "old spoon kettle garden"); status != http.StatusUnauthorized {
 		t.Errorf("sign in with the old password: %d, want %d", status, http.StatusUnauthorized)
 	}
 }
 
 func TestDisableAndEnableWhileServerRuns(t *testing.T) {
 	srv, cli := runningServer(t)
-	userCmd(t, cli, "pw\n", "add", "anna", "Anna")
+	userCmd(t, cli, "spoon kettle garden\n", "add", "anna", "Anna")
 	browser := newClient(t)
-	signIn(t, browser, srv, "anna", "pw")
+	signIn(t, browser, srv, "anna", "spoon kettle garden")
 	if status := home(t, browser, srv); status != http.StatusOK {
 		t.Fatalf("home while signed in: %d", status)
 	}
@@ -101,7 +101,7 @@ func TestDisableAndEnableWhileServerRuns(t *testing.T) {
 	if status := home(t, browser, srv); status != http.StatusSeeOther {
 		t.Errorf("home after disable: %d, want a redirect to the login page", status)
 	}
-	if status := signIn(t, newClient(t), srv, "anna", "pw"); status != http.StatusUnauthorized {
+	if status := signIn(t, newClient(t), srv, "anna", "spoon kettle garden"); status != http.StatusUnauthorized {
 		t.Errorf("sign in of a disabled account: %d, want %d", status, http.StatusUnauthorized)
 	}
 	if _, stdout, _ := userCmd(t, cli, "", "list"); !strings.Contains(stdout, "disabled") {
@@ -115,7 +115,7 @@ func TestDisableAndEnableWhileServerRuns(t *testing.T) {
 	if status := home(t, browser, srv); status != http.StatusSeeOther {
 		t.Errorf("old session after enable: %d, want it still ended", status)
 	}
-	if status := signIn(t, newClient(t), srv, "anna", "pw"); status != http.StatusSeeOther {
+	if status := signIn(t, newClient(t), srv, "anna", "spoon kettle garden"); status != http.StatusSeeOther {
 		t.Errorf("sign in after enable: %d", status)
 	}
 }
@@ -123,7 +123,7 @@ func TestDisableAndEnableWhileServerRuns(t *testing.T) {
 func TestAccountCommandsOnUnknownUser(t *testing.T) {
 	_, cli := runningServer(t)
 	for _, args := range [][]string{{"set-password", "nobody"}, {"disable", "nobody"}, {"enable", "nobody"}} {
-		if code, _, stderr := userCmd(t, cli, "pw\n", args...); code != 1 || !strings.Contains(stderr, "no account") {
+		if code, _, stderr := userCmd(t, cli, "spoon kettle garden\n", args...); code != 1 || !strings.Contains(stderr, "no account") {
 			t.Errorf("user %v: exit %d, %q", args, code, stderr)
 		}
 	}
