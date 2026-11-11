@@ -97,7 +97,7 @@ func residentWorks(t *testing.T, path, password string, wantPages ...string) {
 	if err := pages.Reindex(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, stock.NewStore(database), "dev", nil))
+	srv := httptest.NewServer(web.NewHandler(user.NewStore(database), pages, stock.NewStore(database), "dev", nil, nil))
 	defer srv.Close()
 	c := newClient(t)
 	if status := signIn(t, c, srv, "anna", password); status != http.StatusSeeOther {
@@ -153,7 +153,7 @@ func get(t *testing.T, c *http.Client, srv *httptest.Server, path string) string
 	return string(b)
 }
 
-// withData returns a database with an account, anna with password "pw", and a page.
+// withData returns a database with an account, anna with password "spoon kettle garden", and a page.
 func withData(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "hausbuch.db")
@@ -162,7 +162,7 @@ func withData(t *testing.T) string {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	u, err := user.NewStore(database).Add(context.Background(), "anna", "Anna", "pw")
+	u, err := user.NewStore(database).Add(context.Background(), "anna", "Anna", "spoon kettle garden")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestRestoringACopy(t *testing.T) {
 	}
 	_ = database.Close()
 
-	residentWorks(t, filepath.Join(dir, "copy.db"), "pw", "Garden")
+	residentWorks(t, filepath.Join(dir, "copy.db"), "spoon kettle garden", "Garden")
 }
 
 // A release adding a table and columns the way migrations are allowed to: the current code must keep working on the
@@ -213,5 +213,5 @@ func TestRollingBack(t *testing.T) {
 	}
 	_ = database.Close()
 
-	residentWorks(t, path, "pw", "Garden")
+	residentWorks(t, path, "spoon kettle garden", "Garden")
 }

@@ -39,7 +39,7 @@ func newFixture(t *testing.T) *fixture {
 		to   *user.User
 		name string
 	}{{&f.anna, "anna"}, {&f.marco, "marco"}} {
-		if *u.to, err = users.Add(ctx, u.name, u.name, "pw"); err != nil {
+		if *u.to, err = users.Add(ctx, u.name, u.name, "spoon kettle garden"); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -11,7 +11,7 @@ import (
 func TestWebAuthnIDIsStable(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	anna, marco := mustAdd(t, s, "anna", "Anna", "pw"), mustAdd(t, s, "marco", "Marco", "pw")
+	anna, marco := mustAdd(t, s, "anna", "Anna", "spoon kettle garden"), mustAdd(t, s, "marco", "Marco", "spoon kettle garden")
 	first, err := s.WebAuthnID(ctx, anna.ID)
 	if err != nil || len(first) != 32 {
 		t.Fatalf("handle %x, %v", first, err)
@@ -33,7 +33,7 @@ func TestPasskeys(t *testing.T) {
 	s, now := newStore(t), time.Date(2026, 11, 10, 9, 0, 0, 0, time.Local)
 	s.Now = func() time.Time { return now }
 	ctx := context.Background()
-	anna, marco := mustAdd(t, s, "anna", "Anna", "pw"), mustAdd(t, s, "marco", "Marco", "pw")
+	anna, marco := mustAdd(t, s, "anna", "Anna", "spoon kettle garden"), mustAdd(t, s, "marco", "Marco", "spoon kettle garden")
 	if err := s.AddPasskey(ctx, anna.ID, []byte("k1"), []byte(`{"n":1}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestPasskeys(t *testing.T) {
 	if keys, _ := s.Passkeys(ctx, anna.ID); len(keys) != 1 || string(keys[0].ID) != "k2" {
 		t.Errorf("after removing: %+v", keys)
 	}
-	if _, err := s.Authenticate(ctx, "anna", "pw"); err != nil {
+	if _, err := s.Authenticate(ctx, "anna", "spoon kettle garden", "192.0.2.1"); err != nil {
 		t.Errorf("password after removing a passkey: %v", err)
 	}
 }

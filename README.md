@@ -49,6 +49,7 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_PANTRY_LEAD_DAYS` | the same for the pantry | `7` |
 | `HAUSBUCH_SUPPLIES_LEAD_DAYS` | the same for household supplies | `7` |
 | `HAUSBUCH_URL` | the address users open, such as `https://home.example.org`; with an HTTPS address users can sign in with passkeys (see [Passkeys](#passkeys)), and `user link` prints whole links | none: passwords only |
+| `HAUSBUCH_TRUSTED_PROXIES` | the reverse proxies in front of hausbuch, as addresses or ranges separated by commas, such as `172.16.0.0/12` for one in a Docker network; their `X-Forwarded-For` header gives the client's address, which the request limit, the sign-in lock and the log go by. Set it behind a proxy, or every request counts as coming from the proxy | none: the connection's address |
 | `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due and when an item has expired | `UTC` |
 
 ### Accounts
@@ -62,14 +63,19 @@ docker exec -it hausbuch /hausbuch user list
 docker exec -it hausbuch /hausbuch user set-password anna
 docker exec -it hausbuch /hausbuch user disable anna             # also signs them out everywhere
 docker exec -it hausbuch /hausbuch user enable anna
-docker exec -it hausbuch /hausbuch user unlock anna              # after 3 wrong passwords in a row
+docker exec -it hausbuch /hausbuch user unlock anna              # after 3 wrong passwords in a row from one address
 docker exec -it hausbuch /hausbuch user link anna                # a one-time sign-in link
 ```
 
 Replace `hausbuch` after `-it` with the container's name. Passwords are never given as arguments; without `-t` (no
 terminal) they are read from standard input instead, e.g. `echo "$PASSWORD" | docker exec -i …`.
 
-After 3 wrong passwords in a row a username is locked for 15 minutes, even with the right password.
+A new password needs 15 to 256 characters, with no required mix of capitals, digits or symbols: a few words with
+spaces between them do well. Common passwords and the account's own username or display name are refused. Passwords
+don't expire, and the rules apply only when a password is set, so existing ones keep working.
+
+After 3 wrong passwords in a row from one address, a username is locked from that address for 15 minutes, even with
+the right password; its user can still sign in from elsewhere. `user unlock` lifts the locks from every address.
 
 `user link` prints a link that signs the account in once, within 15 minutes; printing another one makes the earlier
 one invalid. Pass it on to set up a passkey on a new phone, or to get someone back in without resetting their
@@ -90,7 +96,19 @@ address users actually open through the proxy, and don't change it, or the passk
 ### HTTPS
 
 hausbuch serves plain HTTP. Passwords and session cookies travel unencrypted unless a reverse proxy in front of it
-terminates HTTPS; setting that up is up to whoever deploys it.
+terminates HTTPS; setting that up is up to whoever deploys it. Behind a proxy, set `HAUSBUCH_TRUSTED_PROXIES` too.
+
+### Sign-in protection and the log
+
+An address can make at most 20 requests a minute to the login page, sign-in links and passkey sign-in; over that it is
+told to try again in a minute. At most 2 passwords are checked at a time, so that a burst of sign-ins can't exhaust the
+server's memory; one that waits more than 5 seconds is told to try again. An IPv6 address counts as its `/64`.
+
+The container's log (`docker logs hausbuch`) has a line for every sign-in and failed sign-in, with the method, the
+account and the address; for a lock starting; for requests refused by either limit; for a sign-in link that wasn't
+valid; and for passkeys added or removed and passwords changed. It never holds passwords or link tokens, nor usernames
+typed that match no account. Addresses are personal data: keep the log's size limited, as the `logging` options of
+[`docker-compose.yml`](docker-compose.yml) do.
 
 ### Backups
 

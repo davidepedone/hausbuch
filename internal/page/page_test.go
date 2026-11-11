@@ -41,7 +41,7 @@ func newFixture(t *testing.T) *fixture {
 
 func (f *fixture) addUser(username, name string) user.User {
 	f.t.Helper()
-	u, err := f.users.Add(ctx, username, name, "pw")
+	u, err := f.users.Add(ctx, username, name, "spoon kettle garden")
 	if err != nil {
 		f.t.Fatal(err)
 	}

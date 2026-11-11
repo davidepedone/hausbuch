@@ -56,7 +56,7 @@ func (s *Store) CreateLink(ctx context.Context, username string) (string, error)
 // LinkUser returns the account a valid link signs into, without using the link up.
 func (s *Store) LinkUser(ctx context.Context, token string) (User, error) {
 	return linkUser(s.DB.QueryRowContext(ctx, `
-		SELECT u.id, u.username, u.display_name, u.disabled, u.locked_until
+		SELECT u.id, u.username, u.display_name, u.disabled, `+lockedUntilColumn+`
 		FROM sign_in_link l JOIN app_user u ON u.id = l.user_id
 		WHERE l.token_hash = ? AND l.expires_at > ?`, tokenHash(token), s.Now().Unix()))
 }
@@ -78,7 +78,7 @@ func (s *Store) UseLink(ctx context.Context, token string) (User, error) {
 		return User{}, err
 	}
 	u, err := linkUser(tx.QueryRowContext(ctx,
-		"SELECT id, username, display_name, disabled, locked_until FROM app_user WHERE id = ?", id))
+		"SELECT u.id, u.username, u.display_name, u.disabled, "+lockedUntilColumn+" FROM app_user u WHERE u.id = ?", id))
 	if err != nil {
 		return User{}, err
 	}

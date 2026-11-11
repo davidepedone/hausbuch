@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	cdpwebauthn "github.com/chromedp/cdproto/webauthn"
 	"github.com/chromedp/chromedp"
 
@@ -27,7 +29,7 @@ func inChrome(t *testing.T, a *testApp, h http.Handler, steps func(url string) c
 // chromeAt is inChrome for a server already running at url.
 func chromeAt(t *testing.T, a *testApp, url string, steps func(url string) chromedp.Tasks) {
 	t.Helper()
-	a.addUser("anna", "Anna", "secret123")
+	a.addUser("anna", "Anna", "secret kettle 123")
 	// Without its sandbox, which Ubuntu 24.04's AppArmor rules keep Chrome from setting up; it only opens the test
 	// server's pages. Starting Chrome alone can take more than chromedp's default 20 seconds on a busy CI runner.
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(),
@@ -40,7 +42,7 @@ func chromeAt(t *testing.T, a *testApp, url string, steps func(url string) chrom
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(url+"/login"),
 		chromedp.SendKeys("[name=username]", "anna", chromedp.ByQuery),
-		chromedp.SendKeys("[name=password]", "secret123\n", chromedp.ByQuery),
+		chromedp.SendKeys("[name=password]", "secret kettle 123\n", chromedp.ByQuery),
 		chromedp.WaitVisible("[role=search]", chromedp.ByQuery),
 		steps(url),
 	); err != nil {
@@ -50,13 +52,13 @@ func chromeAt(t *testing.T, a *testApp, url string, steps func(url string) chrom
 
 func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 	a := newApp(t)
-	if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("marco", "Marco", "pw").ID,
+	if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("marco", "Marco", "spoon kettle garden").ID,
 		stock.Values{Name: "Pasta", Quantity: stock.One, Category: "Long-life", Location: "Cellar"}); err != nil {
 		t.Fatal(err)
 	}
 	// The product's values are held back until the location has been typed, as on a slow connection.
 	asked, answer := make(chan struct{}, 1), make(chan struct{})
-	h := NewHandler(a.users, a.pages, a.stock, "dev", nil)
+	h := NewHandler(a.users, a.pages, a.stock, "dev", nil, nil)
 	slow := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/pantry/product" {
 			asked <- struct{}{}
@@ -90,7 +92,7 @@ func TestChooseACategoryUnderTheField(t *testing.T) {
 	a := newApp(t)
 	const field = `form[action="/supplies/items"] [name=category]`
 	var chosen, typed string
-	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil), func(url string) chromedp.Tasks {
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil, nil), func(url string) chromedp.Tasks {
 		return chromedp.Tasks{
 			// An empty section opens its add form by itself.
 			chromedp.Navigate(url + "/supplies"),
@@ -108,14 +110,14 @@ func TestChooseACategoryUnderTheField(t *testing.T) {
 func TestChooseALocationUnderTheField(t *testing.T) {
 	a := newApp(t)
 	for _, location := range []string{"Cellar", "Fridge"} {
-		if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("u"+location, location, "pw").ID,
+		if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("u"+location, location, "spoon kettle garden").ID,
 			stock.Values{Name: location + " thing", Quantity: stock.One, Location: location}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	const field = `form[action="/medicines/items"] [name=location]`
 	var chosen, typed string
-	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil), func(url string) chromedp.Tasks {
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil, nil), func(url string) chromedp.Tasks {
 		return chromedp.Tasks{
 			// An empty section opens its add form by itself.
 			chromedp.Navigate(url + "/medicines"),
@@ -132,7 +134,7 @@ func TestChooseALocationUnderTheField(t *testing.T) {
 
 func TestShoppingListInTheBrowser(t *testing.T) {
 	a := newApp(t)
-	marco := a.addUser("marco", "Marco", "pw")
+	marco := a.addUser("marco", "Marco", "spoon kettle garden")
 	ctx := context.Background()
 	for _, e := range []stock.Entry{
 		{Name: "Paracetamol", Section: stock.Medicines, Shop: "Pharmacy"},
@@ -148,7 +150,7 @@ func TestShoppingListInTheBrowser(t *testing.T) {
 		s.querySelector("h2").textContent === "Bought" && s.textContent.includes("Butter"))`
 	var atThePharmacy, afterRefresh []string
 	var typed, pressed string
-	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil), func(url string) chromedp.Tasks {
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil, nil), func(url string) chromedp.Tasks {
 		return chromedp.Tasks{
 			chromedp.Navigate(url + "/shopping"),
 			chromedp.Click(`[data-filter-chip="pharmacy"]`, chromedp.ByQuery),
@@ -197,6 +199,19 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 			chromedp.Text(`[data-passkey-error]`, text, chromedp.ByQuery),
 		}
 	}
+	// arrived waits for expression to be true across navigations, which make chromedp.Poll fail.
+	arrived := func(expression string) chromedp.Action {
+		return chromedp.ActionFunc(func(ctx context.Context) error {
+			for range 150 {
+				var ok bool
+				if err := chromedp.Evaluate(expression, &ok).Do(ctx); err == nil && ok {
+					return nil
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			return fmt.Errorf("never true: %s", expression)
+		})
+	}
 	act := func(f func() error) chromedp.Action {
 		return chromedp.ActionFunc(func(context.Context) error { return f() })
 	}
@@ -216,9 +231,11 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 			chromedp.WaitVisible(`a[href="/pages/new"]`, chromedp.ByQuery),
 			chromedp.Location(&afterOffer),
 
-			// The username field's suggestions: the virtual authenticator picks the passkey by itself.
+			// The username field's suggestions: the virtual authenticator picks the passkey by itself. The page being left
+			// has the same link, so the one waited for must be on a page without its mark.
+			chromedp.Evaluate(`window.left = true`, nil),
 			chromedp.Click(`form[action="/logout"] button`, chromedp.ByQuery),
-			chromedp.WaitVisible(`a[href="/pages/new"]`, chromedp.ByQuery),
+			arrived(`!window.left && document.querySelector('a[href="/pages/new"]') !== null`),
 			chromedp.Location(&fromSuggestions),
 			// Without suggestions from here on, so that the login page waits for the button.
 			chromedp.ActionFunc(func(ctx context.Context) error {
@@ -237,7 +254,7 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 			signOut,
 			act(func() error {
 				for range 3 {
-					_, _ = a.users.Authenticate(ctx, "anna", "wrong")
+					_, _ = a.users.Authenticate(ctx, "anna", "wrong", "192.0.2.1")
 				}
 				return nil
 			}),
@@ -300,5 +317,26 @@ func TestPasskeysInTheBrowser(t *testing.T) {
 	const failed = "The passkey sign-in didn't complete. Try again, or sign in with your password."
 	if whenDisabled != failed || whenCancelled != failed {
 		t.Errorf("disabled: %q, cancelled: %q", whenDisabled, whenCancelled)
+	}
+}
+
+// Over the request limit the login page says so once: the passkey suggestions it asks for on its own fail silently.
+func TestLoginPageOverTheLimitInTheBrowser(t *testing.T) {
+	a := newAppWithPasskeys(t)
+	var errorHidden bool
+	chromeAt(t, a, a.srv.URL, func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			chromedp.Evaluate(`Promise.all(Array.from({length: 25}, () => fetch("/login"))).then(() => true)`, nil,
+				func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) }),
+			chromedp.Navigate(url + "/login"),
+			chromedp.WaitVisible(`[role=alert]`, chromedp.ByQuery),
+			// The suggestions' request goes out once passkeys.js has run; give its answer time to arrive.
+			chromedp.Poll(`document.readyState === "complete"`, nil),
+			chromedp.Sleep(time.Second),
+			chromedp.Evaluate(`document.querySelector("[data-passkey-error]").hidden`, &errorHidden),
+		}
+	})
+	if !errorHidden {
+		t.Error("the passkey block shows an error the user didn't ask for")
 	}
 }

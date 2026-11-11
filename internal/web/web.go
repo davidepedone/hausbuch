@@ -7,10 +7,12 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -38,6 +40,8 @@ type server struct {
 	editors    *editors
 	passkeys   *webauthn.WebAuthn // nil when passkeys can't be offered
 	ceremonies *ceremonies
+	proxies    []netip.Prefix // whose X-Forwarded-For is believed
+	limits     *limiter
 }
 
 // view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
@@ -96,15 +100,19 @@ var funcs = template.FuncMap{
 	"releaseURL":  releaseURL,
 	"reportURL":   func() string { return repository + "/issues/new/choose" },
 	"linkMinutes": func() int { return int(user.LinkLifetime.Minutes()) },
+	"minPassword": func() int { return user.MinPasswordLength },
+	"maxPassword": func() int { return user.MaxPasswordLength },
 	"passkeyID":   func(id []byte) string { return base64.RawURLEncoding.EncodeToString(id) },
 }
 
 // NewHandler returns the application's HTTP handler. Everything except signing in, sign-in links, static assets and
-// the health check requires a session; version is the running release, or "dev".
-func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, version string, passkeys *webauthn.WebAuthn) http.Handler {
-	s := &server{users: users, pages: pages, stock: items, version: version, passkeys: passkeys,
-		templates: map[string]*template.Template{},
-		editors:   &editors{open: map[editorKey]*editor{}}, ceremonies: &ceremonies{m: map[string]ceremony{}}}
+// the health check requires a session; version is the running release, or "dev". proxies are the trusted proxies, from
+// ParseTrustedProxies.
+func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, version string, passkeys *webauthn.WebAuthn,
+	proxies []netip.Prefix) http.Handler {
+	s := &server{users: users, pages: pages, stock: items, version: version, passkeys: passkeys, proxies: proxies,
+		templates: map[string]*template.Template{}, limits: &limiter{},
+		editors: &editors{open: map[editorKey]*editor{}}, ceremonies: &ceremonies{m: map[string]ceremony{}}}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
 		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry", "locations", "location", "link", "offer"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
@@ -151,10 +159,10 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	mux.HandleFunc("GET /login", s.loginPage)
-	mux.HandleFunc("POST /login", s.login)
-	mux.HandleFunc("GET /link/{token}", s.linkPage)
-	mux.HandleFunc("POST /link/{token}", s.useLink)
+	mux.HandleFunc("GET /login", s.limited(s.loginPage))
+	mux.HandleFunc("POST /login", s.limited(s.login))
+	mux.HandleFunc("GET /link/{token}", s.limited(s.linkPage))
+	mux.HandleFunc("POST /link/{token}", s.limited(s.useLink))
 	s.routePasskeys(mux, signedIn)
 	mux.Handle("/", s.requireSession(signedIn))
 
@@ -235,10 +243,15 @@ func (s *server) renderLogin(w http.ResponseWriter, r *http.Request, status int,
 
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	username, password, next := r.PostFormValue("username"), r.PostFormValue("password"), r.PostFormValue("next")
-	u, err := s.users.Authenticate(r.Context(), username, password)
-	if errors.Is(err, user.ErrBadCredentials) {
+	u, err := s.users.Authenticate(r.Context(), username, password, s.address(r))
+	switch {
+	case errors.Is(err, user.ErrBadCredentials):
 		s.renderLogin(w, r, http.StatusUnauthorized,
 			loginData{Error: "Invalid username or password.", Username: username, Next: next})
+		return
+	case errors.Is(err, user.ErrBusy):
+		s.logEvent(r, slog.LevelWarn, "password checks busy", "unknown")
+		s.renderLogin(w, r, http.StatusServiceUnavailable, loginData{Error: busy, Username: username, Next: next})
 		return
 	}
 	if err != nil {
@@ -293,6 +306,17 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// busy is what a sign-in or password change is told when it waited too long for its password check.
+const busy = "Too many sign-ins at once. Try again in a moment."
+
+// refusals say why a new password was refused.
+var refusals = map[error]string{
+	user.ErrPasswordTooShort: fmt.Sprintf("The new password must be at least %d characters.", user.MinPasswordLength),
+	user.ErrPasswordTooLong:  fmt.Sprintf("The new password can be at most %d characters.", user.MaxPasswordLength),
+	user.ErrPasswordCommon:   "The new password is too common. Choose another.",
+	user.ErrPasswordPersonal: "The new password must differ from your username and display name.",
+}
+
 type passwordData struct {
 	Error   string
 	Changed bool
@@ -323,11 +347,15 @@ func (s *server) changePassword(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, user.ErrBadCredentials):
 		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: "The current password is wrong."})
-	case errors.Is(err, user.ErrInvalid):
-		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: "The new password must not be empty."})
+	case errors.Is(err, user.ErrBusy):
+		s.logEvent(r, slog.LevelWarn, "password checks busy", currentUser(r).Username)
+		s.renderAccount(w, r, http.StatusServiceUnavailable, passwordData{Error: busy})
+	case refusals[err] != "":
+		s.renderAccount(w, r, http.StatusBadRequest, passwordData{Error: refusals[err]})
 	case err != nil:
 		s.fail(w, err)
 	default:
+		s.logEvent(r, slog.LevelInfo, "password changed", currentUser(r).Username)
 		s.renderAccount(w, r, http.StatusOK, passwordData{Changed: true})
 	}
 }
@@ -357,6 +385,12 @@ func (s *server) renderPart(w http.ResponseWriter, name, part string, data any) 
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = buf.WriteTo(w)
+}
+
+// logEvent writes a security event to the log, with the account it concerns, "unknown" when there is none, and the
+// client's address. It never gets passwords or tokens.
+func (s *server) logEvent(r *http.Request, level slog.Level, msg, username string, args ...any) {
+	slog.Log(r.Context(), level, msg, append([]any{"user", username, "address", s.address(r)}, args...)...)
 }
 
 func (s *server) fail(w http.ResponseWriter, err error) {

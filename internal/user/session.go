@@ -54,7 +54,7 @@ func (s *Store) CreateSession(ctx context.Context, u User) (Session, error) {
 // Expires is the one now stored, so the caller can tell whether to refresh the cookie.
 func (s *Store) LookupSession(ctx context.Context, token string) (Session, error) {
 	row := s.DB.QueryRowContext(ctx, `
-		SELECT u.id, u.username, u.display_name, u.disabled, u.locked_until, s.expires_at
+		SELECT u.id, u.username, u.display_name, u.disabled, `+lockedUntilColumn+`, s.expires_at
 		FROM session s JOIN app_user u ON u.id = s.user_id
 		WHERE s.token_hash = ?`, tokenHash(token))
 	var u User
