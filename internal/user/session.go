@@ -29,6 +29,9 @@ func tokenHash(token string) []byte {
 	return h[:]
 }
 
+// SessionHash is how the session with that token is stored, for tables that belong to a session.
+func SessionHash(token string) []byte { return tokenHash(token) }
+
 // CreateSession starts a session for the user, valid for s.SessionTimeout, and removes expired ones.
 func (s *Store) CreateSession(ctx context.Context, u User) (Session, error) {
 	b := make([]byte, 32)
