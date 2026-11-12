@@ -17,6 +17,7 @@ import (
 
 	"github.com/davidepedone/hausbuch/internal/db"
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/push"
 	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 	"github.com/davidepedone/hausbuch/internal/web"
@@ -117,6 +118,15 @@ func serve(addr, dbPath, backupDir string) int {
 	go cleanUp(users, pages)
 	items := stock.NewStore(database)
 	items.Lead = lead
+	pushes := push.NewStore(database)
+	// Notifications are offered where passkeys are: both need a secure address.
+	if passkeys != nil {
+		if _, err := pushes.Keys(context.Background()); err != nil {
+			slog.Error("cannot create the notification keys", "err", err)
+			return 1
+		}
+		go sendSummaries(&push.Notifier{Push: pushes, Stock: items, Subscriber: os.Getenv("HAUSBUCH_URL")})
+	}
 
 	srv := &http.Server{
 		Addr:              addr,
@@ -143,6 +153,16 @@ func cleanUp(users *user.Store, pages *page.Store) {
 			slog.Error("remove deleted pages", "err", err)
 		}
 		time.Sleep(24 * time.Hour)
+	}
+}
+
+// sendSummaries sends the users' daily notification summaries as they come due, checking every minute.
+func sendSummaries(n *push.Notifier) {
+	for {
+		if err := n.SendDue(context.Background()); err != nil {
+			slog.Error("send notifications", "err", err)
+		}
+		time.Sleep(time.Minute)
 	}
 }
 

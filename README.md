@@ -48,7 +48,7 @@ The image reports its health to Docker by itself (`/hausbuch healthcheck`, calli
 | `HAUSBUCH_MEDICINES_LEAD_DAYS` | how many days before their expiry date medicines are pointed out as expiring, at least 0 | `30` |
 | `HAUSBUCH_PANTRY_LEAD_DAYS` | the same for the pantry | `7` |
 | `HAUSBUCH_SUPPLIES_LEAD_DAYS` | the same for household supplies | `7` |
-| `HAUSBUCH_URL` | the address users open, such as `https://home.example.org`; with an HTTPS address users can sign in with passkeys (see [Passkeys](#passkeys)), and `user link` prints whole links | none: passwords only |
+| `HAUSBUCH_URL` | the address users open, such as `https://home.example.org`; with an HTTPS address users can sign in with passkeys (see [Passkeys](#passkeys)) and receive [notifications](#notifications), and `user link` prints whole links | none: passwords only |
 | `HAUSBUCH_TRUSTED_PROXIES` | the reverse proxies in front of hausbuch, as addresses or ranges separated by commas, such as `172.16.0.0/12` for one in a Docker network; their `X-Forwarded-For` header gives the client's address, which the request limit, the sign-in lock and the log go by. Set it behind a proxy, or every request counts as coming from the proxy | none: the connection's address |
 | `TZ` | time zone dates are shown in, such as `Europe/Rome`; it also decides when a day's copy is due and when an item has expired | `UTC` |
 
@@ -92,6 +92,24 @@ Browsers allow passkeys only over HTTPS, or on `localhost`, so an installation r
 in with passwords alone. A passkey belongs to the host name it was created under: set `HAUSBUCH_URL` once, to the
 address users actually open through the proxy, and don't change it, or the passkeys already created stop working
 (passwords and sign-in links don't).
+
+### Notifications
+
+With `HAUSBUCH_URL` set to an HTTPS address, as for passkeys, users can turn on notifications on the account page,
+separately on each device. Once a day, at the time each user chooses (09:00 unless changed, in the installation's
+time zone), a notification lists what has started expiring or has expired since their previous one, in the sections
+they chose; when nothing is new, none is sent. On iPhone and iPad notifications work only once hausbuch has been added
+to the Home Screen and is opened from there.
+
+- The server must be able to reach the browsers' push services (Apple's, Google's, Mozilla's) over HTTPS. What a
+  notification says is encrypted for the receiving browser; the push service sees only that one was sent.
+- The key notifications are signed with is created at the first start and kept in the database, so it travels with
+  the backups: restoring one keeps the devices' notifications working, while starting from an empty database means
+  turning them on again.
+- A device's notifications belong to its sign-in: they stop when it signs out, or when it doesn't open hausbuch for
+  longer than `HAUSBUCH_SESSION_TIMEOUT`. Opening a notification opens hausbuch, which keeps the sign-in alive.
+- The log has a line for each notification sent, with the account and how many items and devices, and for each device
+  that couldn't be reached; never the items' names.
 
 ### HTTPS
 

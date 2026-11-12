@@ -20,6 +20,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/davidepedone/hausbuch/internal/page"
+	"github.com/davidepedone/hausbuch/internal/push"
 	"github.com/davidepedone/hausbuch/internal/stock"
 	"github.com/davidepedone/hausbuch/internal/user"
 )
@@ -42,6 +43,7 @@ type server struct {
 	ceremonies *ceremonies
 	proxies    []netip.Prefix // whose X-Forwarded-For is believed
 	limits     *limiter
+	push       *push.Store // nil when notifications can't be offered
 }
 
 // view is what every template gets: the signed-in user, if any, the text searched for, shown in the header's search
@@ -113,6 +115,10 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 	s := &server{users: users, pages: pages, stock: items, version: version, passkeys: passkeys, proxies: proxies,
 		templates: map[string]*template.Template{}, limits: &limiter{},
 		editors: &editors{open: map[editorKey]*editor{}}, ceremonies: &ceremonies{m: map[string]ceremony{}}}
+	// Notifications need a secure address, as passkeys do.
+	if passkeys != nil {
+		s.push = push.NewStore(users.DB)
+	}
 	for _, name := range []string{"home", "login", "password", "page", "edit", "editing", "deleted", "history",
 		"revision", "compare", "search", "section", "item", "move", "shopping", "putaway", "pantry", "locations", "location", "link", "offer"} {
 		s.templates[name] = template.Must(template.New(name).Funcs(funcs).
@@ -153,12 +159,19 @@ func NewHandler(users *user.Store, pages *page.Store, items *stock.Store, versio
 		s.renderAccount(w, r, http.StatusOK, passwordData{})
 	})
 	signedIn.HandleFunc("POST /account/password", s.changePassword)
+	if s.push != nil {
+		s.routeNotifications(signedIn)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	// A service worker controls only the paths under its own, so it is served from the root.
+	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, static, "sw.js")
+	})
 	mux.HandleFunc("GET /login", s.limited(s.loginPage))
 	mux.HandleFunc("POST /login", s.limited(s.login))
 	mux.HandleFunc("GET /link/{token}", s.limited(s.linkPage))
@@ -323,13 +336,25 @@ type passwordData struct {
 	// Passkeys are the user's, listed when PasskeysOn.
 	PasskeysOn bool
 	Passkeys   []user.Passkey
+	// Notifications is the notifications section, nil when notifications are off.
+	Notifications *notificationsData
 }
 
-// renderAccount shows the account page, with the user's passkeys when passkeys are on.
+// renderAccount shows the account page, with the user's passkeys when passkeys are on and their notifications when
+// notifications are.
 func (s *server) renderAccount(w http.ResponseWriter, r *http.Request, status int, d passwordData) {
 	if d.PasskeysOn = s.passkeys != nil; d.PasskeysOn {
 		var err error
 		if d.Passkeys, err = s.users.Passkeys(r.Context(), currentUser(r).ID); err != nil {
+			s.fail(w, err)
+			return
+		}
+	}
+	if s.push != nil {
+		if d.Notifications == nil {
+			d.Notifications = &notificationsData{}
+		}
+		if err := s.notifications(r, d.Notifications); err != nil {
 			s.fail(w, err)
 			return
 		}
