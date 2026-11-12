@@ -235,13 +235,14 @@ func TestPutAwayFromThePage(t *testing.T) {
 	mustContain(t, resp.body, "Give the item a name.", `name="quantity" value="2"`)
 	a.entry("Rice")
 
-	resp = b.post(entryPath(e)+"/put-away", url.Values{"name": {"Rice"}, "quantity": {"2"}, "expires_on": {"2027-05-31"}})
+	resp = b.post(entryPath(e)+"/put-away", url.Values{"name": {"Rice"}, "quantity": {"2"}, "expires_month": {"5"},
+		"expires_year": {"2027"}})
 	it := a.item(stock.Pantry, "Rice")
 	if want := "/pantry#item-" + strconv.FormatInt(it.ID, 10); resp.StatusCode != http.StatusSeeOther ||
 		resp.Header.Get("Location") != want {
 		t.Errorf("saved: %s %s, want %s", resp.Status, resp.Header.Get("Location"), want)
 	}
-	if it.Quantity != 2*stock.One || it.ExpiresOn.IsZero() {
+	if it.Quantity != 2*stock.One || inputDate(it.ExpiresOn) != "2027-05-31" {
 		t.Errorf("row %+v", it)
 	}
 	a.noEntries()

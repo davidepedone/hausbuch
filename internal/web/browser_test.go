@@ -53,7 +53,7 @@ func chromeAt(t *testing.T, a *testApp, url string, steps func(url string) chrom
 func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 	a := newApp(t)
 	if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("marco", "Marco", "spoon kettle garden").ID,
-		stock.Values{Name: "Pasta", Quantity: stock.One, Category: "Long-life", Location: "Cellar"}); err != nil {
+		stock.Values{Name: "Pasta", Quantity: stock.One, Unit: "packs", Category: "Long-life", Location: "Cellar"}); err != nil {
 		t.Fatal(err)
 	}
 	// The product's values are held back until the location has been typed, as on a slow connection.
@@ -67,7 +67,7 @@ func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 		h.ServeHTTP(w, r)
 	})
 	const form = `form[action="/pantry/items"] `
-	var location, focused string
+	var unit, location, focused string
 	inChrome(t, a, slow, func(url string) chromedp.Tasks {
 		return chromedp.Tasks{
 			chromedp.Navigate(url + "/pantry"),
@@ -77,14 +77,96 @@ func TestKnownNameKeepsWhatWasTyped(t *testing.T) {
 			chromedp.ActionFunc(func(context.Context) error { <-asked; return nil }),
 			chromedp.SendKeys(form+"[name=location]", "Kitchen", chromedp.ByQuery),
 			chromedp.ActionFunc(func(context.Context) error { close(answer); return nil }),
-			// The category, left alone, gets the product's.
+			// The category and the unit, left alone, get the product's.
 			chromedp.Poll(`document.querySelector('`+form+`[name=category]').value === "Long-life"`, nil),
+			chromedp.Value(form+"[name=unit]", &unit, chromedp.ByQuery),
 			chromedp.Value(form+"[name=location]", &location, chromedp.ByQuery),
 			chromedp.Evaluate(`document.activeElement.name || document.activeElement.tagName`, &focused),
 		}
 	})
-	if location != "Kitchen" || focused != "location" {
-		t.Errorf("location %q, focus on %q", location, focused)
+	if unit != "packs" || location != "Kitchen" || focused != "location" {
+		t.Errorf("unit %q, location %q, focus on %q", unit, location, focused)
+	}
+}
+
+func TestExactDayInTheBrowser(t *testing.T) {
+	a := newApp(t)
+	const form = `form[action="/pantry/items"] `
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil, nil), func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			// An empty section opens its add form by itself.
+			chromedp.Navigate(url + "/pantry"),
+			chromedp.SendKeys(form+"[name=name]", "Yogurt", chromedp.ByQuery),
+			chromedp.SetValue(form+"[name=expires_month]", "9", chromedp.ByQuery),
+			chromedp.SetValue(form+"[name=expires_year]", "2027", chromedp.ByQuery),
+			chromedp.Click(`//button[text()="Exact day"]`, chromedp.BySearch),
+			chromedp.SetValue(form+"[name=expires_on]", "2026-11-18", chromedp.ByQuery),
+			chromedp.Submit(form+"[name=name]", chromedp.ByQuery),
+			chromedp.WaitVisible(`//*[text()="Yogurt"]`, chromedp.BySearch),
+			// Back to the month and year, the exact day typed before isn't posted.
+			chromedp.Navigate(url + "/pantry"),
+			chromedp.Click("summary", chromedp.ByQuery),
+			chromedp.SendKeys(form+"[name=name]", "Passata", chromedp.ByQuery),
+			chromedp.Click(`//button[text()="Exact day"]`, chromedp.BySearch),
+			chromedp.SetValue(form+"[name=expires_on]", "2026-11-18", chromedp.ByQuery),
+			chromedp.Click(`//button[text()="Month and year"]`, chromedp.BySearch),
+			chromedp.SetValue(form+"[name=expires_month]", "9", chromedp.ByQuery),
+			chromedp.SetValue(form+"[name=expires_year]", "2027", chromedp.ByQuery),
+			chromedp.Submit(form+"[name=name]", chromedp.ByQuery),
+			chromedp.WaitVisible(`//*[text()="Passata"]`, chromedp.BySearch),
+		}
+	})
+	if got := inputDate(a.item(stock.Pantry, "Yogurt").ExpiresOn); got != "2026-11-18" {
+		t.Errorf("exact day: %q", got)
+	}
+	if got := inputDate(a.item(stock.Pantry, "Passata").ExpiresOn); got != "2027-09-30" {
+		t.Errorf("month and year after an exact day: %q", got)
+	}
+}
+
+func TestKnownProductAfterAnItemAdded(t *testing.T) {
+	a := newApp(t)
+	if _, err := a.stock.Add(context.Background(), stock.Pantry, a.addUser("marco", "Marco", "spoon kettle garden").ID,
+		stock.Values{Name: "Rice", Quantity: stock.One, Category: "Long-life", Location: "Pantry, top shelf"}); err != nil {
+		t.Fatal(err)
+	}
+	const form = `form[action="/pantry/items"] `
+	// addThenRice adds an item kept in location, then chooses the known name "Rice" for the next one.
+	addThenRice := func(name, location string, focused, kept *string) chromedp.Tasks {
+		tasks := chromedp.Tasks{
+			chromedp.Click("summary", chromedp.ByQuery),
+			chromedp.SendKeys(form+"[name=name]", name, chromedp.ByQuery),
+		}
+		if location != "" {
+			tasks = append(tasks, chromedp.SetValue(form+"[name=location]", location, chromedp.ByQuery))
+		}
+		return append(tasks,
+			chromedp.Submit(form+"[name=name]", chromedp.ByQuery),
+			chromedp.WaitVisible(`//p[@role="status"][text()="Added `+name+`."]`, chromedp.BySearch),
+			chromedp.Evaluate(`document.activeElement.name`, focused),
+			chromedp.SendKeys(form+"[name=name]", "Rice", chromedp.ByQuery),
+			chromedp.Click(form+"[name=quantity]", chromedp.ByQuery),
+			chromedp.Poll(`document.querySelector('`+form+`[name=category]').value === "Long-life"`, nil),
+			chromedp.Value(form+"[name=location]", kept, chromedp.ByQuery),
+		)
+	}
+	var focused, kept, emptyFocused, filled string
+	inChrome(t, a, NewHandler(a.users, a.pages, a.stock, "dev", nil, nil), func(url string) chromedp.Tasks {
+		return chromedp.Tasks{
+			chromedp.Navigate(url + "/pantry"),
+			addThenRice("Passata", "Cellar", &focused, &kept),
+			chromedp.Navigate(url + "/pantry"),
+			addThenRice("Salt", "", &emptyFocused, &filled),
+		}
+	})
+	if focused != "name" || emptyFocused != "name" {
+		t.Errorf("focus after adding on %q and %q", focused, emptyFocused)
+	}
+	if kept != "Cellar" {
+		t.Errorf("kept location replaced by %q", kept)
+	}
+	if filled != "Pantry, top shelf" {
+		t.Errorf("empty location filled with %q", filled)
 	}
 }
 

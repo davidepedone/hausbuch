@@ -490,14 +490,14 @@ func TestWarnings(t *testing.T) {
 
 func TestBuySomethingAgain(t *testing.T) {
 	f := newFixture(t)
-	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Category: "Long-life", Location: "Pantry, top shelf",
-		OpenedDays: 4})
+	id := f.add(Pantry, Values{Name: "Passata", Quantity: 1 * One, Unit: "bottles", Category: "Long-life",
+		Location: "Pantry, top shelf", OpenedDays: 4})
 	if _, err := f.stock.Remove(ctx, Pantry, id); err != nil {
 		t.Fatal(err)
 	}
 	p, found, err := f.stock.Product(ctx, Pantry, "passata")
-	if err != nil || !found ||
-		p != (Product{Name: "Passata", Category: "Long-life", Location: "Pantry, top shelf", OpenedDays: 4}) {
+	if err != nil || !found || p != (Product{Name: "Passata", Unit: "bottles", Category: "Long-life",
+		Location: "Pantry, top shelf", OpenedDays: 4}) {
 		t.Errorf("product %+v %v %v", p, found, err)
 	}
 	if got, _ := f.stock.Names(ctx, Pantry); !slices.Equal(got, []string{"Passata"}) {

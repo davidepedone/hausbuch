@@ -127,6 +127,7 @@ type Item struct {
 // Product is what a section remembers of a name once used.
 type Product struct {
 	Name       string
+	Unit       string
 	Category   string
 	Location   string
 	OpenedDays int
@@ -343,11 +344,12 @@ func matchingRow(ctx context.Context, tx *sql.Tx, section Section, v Values) (in
 // remember records v's product as the section's latest use of its name.
 func remember(ctx context.Context, tx *sql.Tx, section Section, v Values) error {
 	_, err := tx.ExecContext(ctx, `
-		INSERT INTO stock_product (section, name_key, name, category, location, opened_days) VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO stock_product (section, name_key, name, unit, category, location, opened_days)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (section, name_key) DO UPDATE
-		SET name = excluded.name, category = excluded.category, location = excluded.location,
+		SET name = excluded.name, unit = excluded.unit, category = excluded.category, location = excluded.location,
 			opened_days = excluded.opened_days`,
-		section, nameKey(v.Name), v.Name, v.Category, v.Location, days(v.OpenedDays))
+		section, nameKey(v.Name), v.Name, v.Unit, v.Category, v.Location, days(v.OpenedDays))
 	return err
 }
 
@@ -751,8 +753,8 @@ func (s *Store) Product(ctx context.Context, section Section, name string) (Prod
 	var p Product
 	var openedDays sql.NullInt64
 	err := s.DB.QueryRowContext(ctx,
-		"SELECT name, category, location, opened_days FROM stock_product WHERE section = ? AND name_key = ?",
-		section, nameKey(name)).Scan(&p.Name, &p.Category, &p.Location, &openedDays)
+		"SELECT name, unit, category, location, opened_days FROM stock_product WHERE section = ? AND name_key = ?",
+		section, nameKey(name)).Scan(&p.Name, &p.Unit, &p.Category, &p.Location, &openedDays)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Product{}, false, nil
 	}

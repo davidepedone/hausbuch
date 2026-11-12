@@ -103,3 +103,27 @@ func TestRowsGetNoCategory(t *testing.T) {
 		t.Errorf("categories %q %q, %v", item, product, err)
 	}
 }
+
+func TestProductsGetNoUnit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hausbuch.db")
+	old, err := open(ctx, path, dir, upTo(t, 12))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec("INSERT INTO stock_product (section, name_key, name) VALUES ('pantry', 'passata', 'Passata')"); err != nil {
+		t.Fatal(err)
+	}
+	_ = old.Close()
+
+	db, err := Open(ctx, path, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var unit string
+	if err := db.QueryRow("SELECT unit FROM stock_product").Scan(&unit); err != nil || unit != "" {
+		t.Errorf("unit %q, %v", unit, err)
+	}
+}
