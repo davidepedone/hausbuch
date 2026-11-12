@@ -81,7 +81,8 @@ func TestAddAnItem(t *testing.T) {
 	b := a.signedInAs("anna", "Anna")
 	resp := b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "quantity": {"3"}, "unit": {"bottles"},
 		"location": {"Pantry, top shelf"}, "expires_on": {"2027-09-30"}})
-	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/pantry" {
+	if resp.StatusCode != http.StatusSeeOther ||
+		resp.Header.Get("Location") != "/pantry?added=Passata&location=Pantry%2C+top+shelf" {
 		t.Fatalf("add: %s %s", resp.Status, resp.Header.Get("Location"))
 	}
 	html := b.view("/pantry")
@@ -91,6 +92,34 @@ func TestAddAnItem(t *testing.T) {
 	}
 	if it := a.item(stock.Pantry, "Passata"); it.CreatedBy != "Anna" {
 		t.Errorf("added by %q", it.CreatedBy)
+	}
+}
+
+func TestAddSeveralInARow(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Salt"}})
+	resp := b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "unit": {"bottles"}, "category": {"Long-life"},
+		"location": {"Cellar"}, "expires_month": {"9"}, "expires_year": {"2027"}})
+	next := b.view(resp.Header.Get("Location"))
+	mustContain(t, next, `<details class="mb-6 rounded border border-stone-200 bg-white" open>`, "Added Passata.",
+		`name="name" value="" list="names" required autocomplete="off" data-product-name autofocus`,
+		`data-kept="location"`, `name="location" value="Cellar"`, `name="unit" value=""`, `name="category" value=""`)
+	if strings.Contains(next, `<option value="9" selected>`) {
+		t.Error("the expiry kept for the next item")
+	}
+
+	// Without a location to keep, nothing is marked as kept.
+	resp = b.addItem(stock.Pantry, url.Values{"name": {"Rice"}})
+	next = b.view(resp.Header.Get("Location"))
+	mustContain(t, next, "Added Rice.", `name="location" value=""`)
+	if strings.Contains(next, "data-kept") {
+		t.Error("an empty location kept")
+	}
+
+	// Opening the section otherwise leaves the form closed, as before.
+	if html := b.view("/pantry"); strings.Contains(html, " open>") || strings.Contains(html, "autofocus") {
+		t.Error("add form open without an item just added")
 	}
 }
 
@@ -138,6 +167,70 @@ func TestAddRefused(t *testing.T) {
 	if items, _ := a.stock.List(context.Background(), stock.Pantry); len(items) != 0 {
 		t.Errorf("saved: %v", items)
 	}
+}
+
+func TestExpiryAsAMonthAndAYear(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	for _, c := range []struct {
+		name string
+		form url.Values
+		want string
+	}{
+		{"Aspirin", url.Values{"expires_month": {"9"}, "expires_year": {"2027"}}, "2027-09-30"},
+		{"Crackers", url.Values{"expires_month": {"2"}, "expires_year": {"2028"}}, "2028-02-29"},
+		{"Yogurt", url.Values{"expires_on": {"2026-11-18"}}, "2026-11-18"},
+		{"Salt", url.Values{"expires_month": {""}, "expires_year": {""}}, ""},
+	} {
+		c.form.Set("name", c.name)
+		if resp := b.addItem(stock.Pantry, c.form); resp.StatusCode != http.StatusSeeOther {
+			t.Fatalf("%s: %s", c.name, resp.Status)
+		}
+		if got := inputDate(a.item(stock.Pantry, c.name).ExpiresOn); got != c.want {
+			t.Errorf("%s expires on %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestExpiryNotComplete(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	for _, form := range []url.Values{
+		{"name": {"Rice"}, "location": {"Cellar"}, "expires_month": {"9"}},
+		{"name": {"Rice"}, "location": {"Cellar"}, "expires_year": {"2027"}},
+	} {
+		resp := b.addItem(stock.Pantry, form)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%v: %s", form, resp.Status)
+		}
+		mustContain(t, resp.body, "The expiry date isn&#39;t complete.", `name="location" value="Cellar"`)
+	}
+	if items, _ := a.stock.List(context.Background(), stock.Pantry); len(items) != 0 {
+		t.Errorf("saved: %v", items)
+	}
+}
+
+func TestExpiryFieldWhenEditing(t *testing.T) {
+	a := newApp(t)
+	b := a.signedInAs("anna", "Anna")
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "expires_on": {"2027-09-30"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Yogurt"}, "expires_on": {"2026-11-18"}})
+
+	mustContain(t, b.view(itemPath(a.item(stock.Pantry, "Passata"))), `<option value="9" selected>September</option>`,
+		`<option value="2027" selected>2027</option>`, `name="expires_on" value="2027-09-30" type="date" aria-label="Expiry date" disabled`)
+	yogurt := b.view(itemPath(a.item(stock.Pantry, "Yogurt")))
+	mustContain(t, yogurt, `name="expires_month" aria-label="Expiry month" disabled`,
+		`name="expires_on" value="2026-11-18" type="date" aria-label="Expiry date"
+`)
+	if strings.Contains(yogurt, " selected>November") {
+		t.Error("an exact day shown as a month")
+	}
+
+	// A refused form shows the expiry the way it was entered.
+	resp := b.addItem(stock.Pantry, url.Values{"name": {""}, "expires_on": {"2026-11-18"}})
+	mustContain(t, resp.body, `name="expires_month" aria-label="Expiry month" disabled`)
+	resp = b.addItem(stock.Pantry, url.Values{"name": {""}, "expires_month": {"3"}, "expires_year": {"2040"}})
+	mustContain(t, resp.body, `<option value="3" selected>March</option>`, `<option value="2040" selected>2040</option>`)
 }
 
 func TestEditAnItem(t *testing.T) {
@@ -309,8 +402,8 @@ func TestOpenedTodayFromTheList(t *testing.T) {
 func TestBuySomethingAgain(t *testing.T) {
 	a := newApp(t)
 	b := a.signedInAs("anna", "Anna")
-	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "category": {"Long-life"}, "location": {"Pantry, top shelf"},
-		"opened_days": {"4"}})
+	b.addItem(stock.Pantry, url.Values{"name": {"Passata"}, "unit": {"bottles"}, "category": {"Long-life"},
+		"location": {"Pantry, top shelf"}, "opened_days": {"4"}})
 	b.hx(itemPath(a.item(stock.Pantry, "Passata"))+"/remove", nil)
 	mustContain(t, b.view("/pantry"), `<option value="Passata">`, `<option value="Pantry, top shelf">`,
 		`<option value="Long-life">`)
@@ -318,7 +411,7 @@ func TestBuySomethingAgain(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("known product: %s", resp.Status)
 	}
-	mustContain(t, resp.body, `id="product-fields"`, `name="category" value="Long-life"`,
+	mustContain(t, resp.body, `id="product-fields"`, `name="unit" value="bottles"`, `name="category" value="Long-life"`,
 		`name="location" value="Pantry, top shelf"`,
 		`name="opened_days" value="4"`)
 	if resp := b.get("/pantry/product?name=Pesto"); resp.StatusCode != http.StatusNoContent || resp.body != "" {

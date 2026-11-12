@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"errors"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +17,7 @@ import (
 func (s *server) routeStock(mux *http.ServeMux) {
 	for _, sec := range stock.Sections {
 		base := "/" + string(sec)
-		mux.HandleFunc("GET "+base, func(w http.ResponseWriter, r *http.Request) { s.section(w, r, sec, itemForm{}) })
+		mux.HandleFunc("GET "+base, func(w http.ResponseWriter, r *http.Request) { s.sectionPage(w, r, sec) })
 		mux.HandleFunc("POST "+base+"/items", func(w http.ResponseWriter, r *http.Request) { s.addItem(w, r, sec) })
 		mux.HandleFunc("GET "+base+"/items/{id}", func(w http.ResponseWriter, r *http.Request) { s.editItem(w, r, sec) })
 		mux.HandleFunc("POST "+base+"/items/{id}", func(w http.ResponseWriter, r *http.Request) { s.saveItem(w, r, sec) })
@@ -41,6 +43,7 @@ func itemURL(it stock.Item) string {
 // itemForm is an item's form as the user filled it in, kept as text so that a refused form shows what was entered.
 type itemForm struct {
 	Name, Quantity, Unit, Category, Location, ExpiresOn, OpenedOn, OpenedDays string
+	ExpiresMonth, ExpiresYear                                                 string // the expiry as a month and a year
 	Section                                                                   string // where the edit page saves the row
 	Error                                                                     string
 }
@@ -57,10 +60,14 @@ func formOf(v stock.Values) itemForm {
 func readForm(r *http.Request) itemForm {
 	return itemForm{Name: r.PostFormValue("name"), Quantity: r.PostFormValue("quantity"), Unit: r.PostFormValue("unit"),
 		Category: r.PostFormValue("category"), Location: r.PostFormValue("location"), ExpiresOn: r.PostFormValue("expires_on"),
-		OpenedOn: r.PostFormValue("opened_on"), OpenedDays: r.PostFormValue("opened_days")}
+		OpenedOn: r.PostFormValue("opened_on"), OpenedDays: r.PostFormValue("opened_days"),
+		ExpiresMonth: r.PostFormValue("expires_month"), ExpiresYear: r.PostFormValue("expires_year")}
 }
 
-var errDate = errors.New("bad date")
+var (
+	errDate           = errors.New("bad date")
+	errExpiryNotWhole = errors.New("expiry month without a year, or a year without a month")
+)
 
 // values turns the form into values, reporting a field that isn't a number or a date.
 func (f itemForm) values() (stock.Values, error) {
@@ -84,7 +91,74 @@ func (f itemForm) values() (stock.Values, error) {
 			}
 		}
 	}
-	return v, nil
+	if v.ExpiresOn.IsZero() {
+		v.ExpiresOn, err = monthEnd(f.ExpiresMonth, f.ExpiresYear)
+	}
+	return v, err
+}
+
+// expiryField is how the expiry field of a form shows its value: as a month and a year, or as an exact day when it is
+// a date other than a month's last day.
+type expiryField struct {
+	Exact         bool
+	Date          string
+	Months, Years []option
+}
+
+type option struct {
+	Value, Label string
+	Selected     bool
+}
+
+// Expiry lays out the form's expiry for its field. The years run from 2 back, for an item found already expired, to 10
+// ahead, and include the one shown.
+func (f itemForm) Expiry() expiryField {
+	e := expiryField{Date: f.ExpiresOn}
+	month, year := strings.TrimSpace(f.ExpiresMonth), strings.TrimSpace(f.ExpiresYear)
+	if d, err := time.Parse(time.DateOnly, f.ExpiresOn); err == nil && d.AddDate(0, 0, 1).Day() == 1 {
+		month, year = strconv.Itoa(int(d.Month())), strconv.Itoa(d.Year())
+	} else if f.ExpiresOn != "" {
+		e.Exact = true
+	}
+	for m := time.January; m <= time.December; m++ {
+		v := strconv.Itoa(int(m))
+		e.Months = append(e.Months, option{Value: v, Label: m.String(), Selected: v == month})
+	}
+	now := time.Now().Year()
+	years := []int{}
+	for y := now - 2; y <= now+10; y++ {
+		years = append(years, y)
+	}
+	if y, err := strconv.Atoi(year); err == nil && !slices.Contains(years, y) {
+		years = append(years, y)
+		slices.Sort(years)
+	}
+	for _, y := range years {
+		v := strconv.Itoa(y)
+		e.Years = append(e.Years, option{Value: v, Label: v, Selected: v == year})
+	}
+	return e
+}
+
+// monthEnd is the last day of a month given as its number and its year, or no date when both are empty.
+func monthEnd(month, year string) (time.Time, error) {
+	month, year = strings.TrimSpace(month), strings.TrimSpace(year)
+	if month == "" && year == "" {
+		return time.Time{}, nil
+	}
+	if month == "" || year == "" {
+		return time.Time{}, errExpiryNotWhole
+	}
+	m, err := strconv.Atoi(month)
+	if err != nil || m < 1 || m > 12 {
+		return time.Time{}, errDate
+	}
+	y, err := strconv.Atoi(year)
+	if err != nil || y < 1 {
+		return time.Time{}, errDate
+	}
+	// Day 0 of the next month is the month's last day.
+	return time.Date(y, time.Month(m)+1, 0, 0, 0, 0, 0, time.UTC), nil
 }
 
 // refusal is the message for a form the store or the parsing refused, or "" for any other error.
@@ -98,6 +172,8 @@ func refusal(err error) string {
 		return "The days it lasts once opened must be a whole number of at least 1, or empty."
 	case errors.Is(err, errDate):
 		return "A date isn't valid."
+	case errors.Is(err, errExpiryNotWhole):
+		return "The expiry date isn't complete."
 	case errors.Is(err, stock.ErrSection):
 		return "Choose one of the sections."
 	}
@@ -113,6 +189,7 @@ type sectionData struct {
 	Form       itemForm
 	Removed    *stock.Item // the row just removed, to offer undoing it
 	Listed     string      // the name of a product just added to the shopping list, to say so
+	Added      string      // the name of an item just added, to say so and keep the add form open for the next one
 }
 
 // Grouped tells whether some row has a category, so that the list shows its groups and chips.
@@ -135,6 +212,20 @@ func (s *server) sectionData(r *http.Request, sec stock.Section) (sectionData, e
 	}
 	d.Locations, err = s.stock.Locations(r.Context())
 	return d, err
+}
+
+// sectionPage shows a section; after an item was added, its add form is ready for the next one, in the same location.
+func (s *server) sectionPage(w http.ResponseWriter, r *http.Request, sec stock.Section) {
+	q := r.URL.Query()
+	d, err := s.sectionData(r, sec)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if d.Added = q.Get("added"); d.Added != "" {
+		d.Form.Location = q.Get("location")
+	}
+	s.render(w, r, http.StatusOK, "section", d)
 }
 
 func (s *server) section(w http.ResponseWriter, r *http.Request, sec stock.Section, form itemForm) {
@@ -166,7 +257,11 @@ func (s *server) addItem(w http.ResponseWriter, r *http.Request, sec stock.Secti
 		s.fail(w, err)
 		return
 	}
-	http.Redirect(w, r, "/"+string(sec), http.StatusSeeOther)
+	added := url.Values{"added": {v.Name}}
+	if v.Location != "" {
+		added.Set("location", v.Location)
+	}
+	http.Redirect(w, r, "/"+string(sec)+"?"+added.Encode(), http.StatusSeeOther)
 }
 
 type itemData struct {
@@ -383,7 +478,7 @@ func (s *server) listRemoved(w http.ResponseWriter, r *http.Request, sec stock.S
 	s.answerItems(w, r, sec, nil, strings.TrimSpace(name))
 }
 
-// product answers the add form's name field with the category, location and shelf life the product last had, or with
+// product answers the add form's name field with the unit, category, location and shelf life the product last had, or with
 // nothing for a name never used.
 func (s *server) product(w http.ResponseWriter, r *http.Request, sec stock.Section) {
 	p, found, err := s.stock.Product(r.Context(), sec, r.URL.Query().Get("name"))
@@ -395,8 +490,8 @@ func (s *server) product(w http.ResponseWriter, r *http.Request, sec stock.Secti
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	form := formOf(stock.Values{Category: p.Category, Location: p.Location, OpenedDays: p.OpenedDays})
-	s.renderPart(w, "section", "productFields", sectionData{Section: sec, Form: form})
+	form := formOf(stock.Values{Unit: p.Unit, Category: p.Category, Location: p.Location, OpenedDays: p.OpenedDays})
+	s.renderPart(w, "section", "productAnswer", sectionData{Section: sec, Form: form})
 }
 
 // inputDate is a calendar date as a date field takes it, or "" for none.

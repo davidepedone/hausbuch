@@ -34,6 +34,13 @@
 </div>
 {{end}}
 
+{{/* productAnswer is what the add form's name field gets back for a known product: the values productfields.js fills
+     in. */}}
+{{define "productAnswer"}}
+{{template "productFields" .}}
+<input type="hidden" name="unit" value="{{.Form.Unit}}">
+{{end}}
+
 {{/* choiceField is a text field with its suggestions also shown as choices under it, as built by the field function:
      Safari on the iPhone shows a datalist's suggestions only in the keyboard's bar, once something is typed.
      suggestions.js fills the field from a choice. */}}
@@ -52,14 +59,32 @@
 </div>
 {{end}}
 
-{{/* expiryField is an item's printed expiry date, in its add and edit forms. */}}
+{{/* expiryField is an item's printed expiry date, in its add and edit forms: a month and a year, or with "Exact day" a
+     full date. Only the shown part's fields are enabled, so only they are posted; expiry.js switches between them. */}}
 {{define "expiryField"}}
-<label class="block">
-  <span class="mb-1 block text-sm font-medium">Expiry date <span class="font-normal text-stone-500">(optional)</span></span>
-  <input name="expires_on" value="{{.ExpiresOn}}" type="date"
-         class="w-full rounded border border-stone-300 bg-white px-3 py-2 text-base sm:w-auto">
-  <span class="mt-1 block text-sm text-stone-500">With only a month and a year printed, pick the month's last day.</span>
-</label>
+{{with .Expiry}}
+<fieldset data-expiry>
+  <legend class="mb-1 text-sm font-medium">Expiry date <span class="font-normal text-stone-500">(optional)</span></legend>
+  <div data-expiry-part class="flex flex-wrap items-center gap-2"{{if .Exact}} hidden{{end}}>
+    <select name="expires_month" aria-label="Expiry month"{{if .Exact}} disabled{{end}}
+            class="rounded border border-stone-300 bg-white px-3 py-2 text-base">
+      <option value="">Month</option>
+      {{range .Months}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    <select name="expires_year" aria-label="Expiry year"{{if .Exact}} disabled{{end}}
+            class="rounded border border-stone-300 bg-white px-3 py-2 text-base">
+      <option value="">Year</option>
+      {{range .Years}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    <button type="button" data-expiry-switch class="px-1 py-2 text-sm text-sage-700 underline hover:text-sage-800">Exact day</button>
+  </div>
+  <div data-expiry-part class="flex flex-wrap items-center gap-2"{{if not .Exact}} hidden{{end}}>
+    <input name="expires_on" value="{{.Date}}" type="date" aria-label="Expiry date"{{if not .Exact}} disabled{{end}}
+           class="rounded border border-stone-300 bg-white px-3 py-2 text-base">
+    <button type="button" data-expiry-switch class="px-1 py-2 text-sm text-sage-700 underline hover:text-sage-800">Month and year</button>
+  </div>
+</fieldset>
+{{end}}
 {{end}}
 
 {{/* sectionIcon draws a section's icon like typeIcon does: a capsule for medicines, a jar for the pantry, a spray

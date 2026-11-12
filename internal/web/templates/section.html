@@ -1,16 +1,17 @@
 {{define "content"}}
 {{with .Data}}
 <h1 class="mb-4 font-display text-xl font-semibold">{{.Section.Label}}</h1>
-<details class="mb-6 rounded border border-stone-200 bg-white"{{if or (not .Groups) .Form.Error}} open{{end}}>
+<details class="mb-6 rounded border border-stone-200 bg-white"{{if or (not .Groups) .Form.Error .Added}} open{{end}}>
   <summary class="cursor-pointer px-4 py-3 font-medium">Add item</summary>
-  <form method="post" action="/{{.Section}}/items" class="space-y-4 border-t border-stone-200 p-4">
+  {{/* The location kept from the item just added counts as typed: productfields.js doesn't replace it. */}}
+  <form method="post" action="/{{.Section}}/items" class="space-y-4 border-t border-stone-200 p-4"{{if and .Added .Form.Location}} data-kept="location"{{end}}>
     {{with .Form.Error}}
     <p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{.}}</p>
     {{end}}
     <label class="block">
       <span class="mb-1 block text-sm font-medium">Name</span>
       {{/* Choosing a name used before fills in its category, where it was kept and how long it lasts once opened. */}}
-      <input name="name" value="{{.Form.Name}}" list="names" required autocomplete="off" data-product-name
+      <input name="name" value="{{.Form.Name}}" list="names" required autocomplete="off" data-product-name{{if .Added}} autofocus{{end}}
              hx-get="/{{.Section}}/product" hx-trigger="change" hx-swap="none"
              class="w-full rounded border border-stone-300 px-3 py-2 text-base">
     </label>
@@ -23,7 +24,7 @@
       </label>
       <label class="block">
         <span class="mb-1 block text-sm font-medium">Unit <span class="font-normal text-stone-500">(optional)</span></span>
-        <input name="unit" value="{{.Form.Unit}}" placeholder="packs, bottles…"
+        <input name="unit" value="{{.Form.Unit}}" placeholder="packs, bottles…" data-product-field
                class="w-full rounded border border-stone-300 px-3 py-2 text-base">
       </label>
     </div>
@@ -40,6 +41,7 @@
 <script src="/static/listfilter.js" defer></script>
 <script src="/static/productfields.js" defer></script>
 <script src="/static/suggestions.js" defer></script>
+<script src="/static/expiry.js" defer></script>
 {{end}}
 {{end}}
 
@@ -68,6 +70,9 @@
       <button formaction="/{{.Section}}/items/to-list" hx-post="/{{.Section}}/items/to-list" class="font-semibold underline">Add to shopping list</button>
     </span>
   </form>
+  {{end}}
+  {{with .Added}}
+  <p role="status" class="fade-away fixed inset-x-4 bottom-4 z-10 mx-auto max-w-sm break-words rounded bg-stone-800 px-4 py-3 text-sm text-white shadow-lg">Added {{.}}.</p>
   {{end}}
   {{with .Listed}}
   <p role="status" class="fade-away fixed inset-x-4 bottom-4 z-10 mx-auto max-w-sm break-words rounded bg-stone-800 px-4 py-3 text-sm text-white shadow-lg">Added {{.}} to the shopping list.</p>
